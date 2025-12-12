@@ -1,12 +1,15 @@
 import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
+
 import MainTabNavigator from "@/navigation/MainTabNavigator";
-import ModalScreen from "@/screens/ModalScreen";
+import EventDetailScreen from "@/screens/EventDetailScreen";
+import VenuesScreen from "@/screens/VenuesScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 
 export type RootStackParamList = {
   Main: undefined;
-  Modal: undefined;
+  EventDetail: { eventId: string };
+  TopSpots: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -22,11 +25,19 @@ export default function RootStackNavigator() {
         options={{ headerShown: false }}
       />
       <Stack.Screen
-        name="Modal"
-        component={ModalScreen}
+        name="EventDetail"
+        component={EventDetailScreen}
         options={{
           presentation: "modal",
-          headerTitle: "Modal",
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="TopSpots"
+        component={VenuesScreen}
+        options={{
+          title: "Top Spots",
+          headerBackTitle: "Back",
         }}
       />
     </Stack.Navigator>

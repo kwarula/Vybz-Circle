@@ -2,13 +2,19 @@ import React from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
-import { Platform, StyleSheet } from "react-native";
+import { Platform, StyleSheet, View } from "react-native";
+
 import HomeStackNavigator from "@/navigation/HomeStackNavigator";
+import DiscoverStackNavigator from "@/navigation/DiscoverStackNavigator";
+import MessagesStackNavigator from "@/navigation/MessagesStackNavigator";
 import ProfileStackNavigator from "@/navigation/ProfileStackNavigator";
 import { useTheme } from "@/hooks/useTheme";
+import { Colors } from "@/constants/theme";
 
 export type MainTabParamList = {
   HomeTab: undefined;
+  DiscoverTab: undefined;
+  MessagesTab: undefined;
   ProfileTab: undefined;
 };
 
@@ -21,15 +27,17 @@ export default function MainTabNavigator() {
     <Tab.Navigator
       initialRouteName="HomeTab"
       screenOptions={{
-        tabBarActiveTintColor: theme.tabIconSelected,
+        tabBarActiveTintColor: Colors.light.primary,
         tabBarInactiveTintColor: theme.tabIconDefault,
         tabBarStyle: {
           position: "absolute",
           backgroundColor: Platform.select({
             ios: "transparent",
-            android: theme.backgroundRoot,
+            android: theme.backgroundDefault,
+            web: theme.backgroundDefault,
           }),
-          borderTopWidth: 0,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: theme.border,
           elevation: 0,
         },
         tabBarBackground: () =>
@@ -39,7 +47,14 @@ export default function MainTabNavigator() {
               tint={isDark ? "dark" : "light"}
               style={StyleSheet.absoluteFill}
             />
-          ) : null,
+          ) : (
+            <View
+              style={[
+                StyleSheet.absoluteFill,
+                { backgroundColor: theme.backgroundDefault },
+              ]}
+            />
+          ),
         headerShown: false,
       }}
     >
@@ -50,6 +65,26 @@ export default function MainTabNavigator() {
           title: "Home",
           tabBarIcon: ({ color, size }) => (
             <Feather name="home" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="DiscoverTab"
+        component={DiscoverStackNavigator}
+        options={{
+          title: "Discover",
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="search" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="MessagesTab"
+        component={MessagesStackNavigator}
+        options={{
+          title: "Message",
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="message-circle" size={size} color={color} />
           ),
         }}
       />
