@@ -17,6 +17,14 @@ function setupCors(app: express.Application) {
   app.use((req, res, next) => {
     const origins = new Set<string>();
 
+    // Development: Allow localhost on any port
+    if (process.env.NODE_ENV === 'development') {
+      const origin = req.header("origin");
+      if (origin && (origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('192.168.'))) {
+        origins.add(origin);
+      }
+    }
+
     if (process.env.REPLIT_DEV_DOMAIN) {
       origins.add(`https://${process.env.REPLIT_DEV_DOMAIN}`);
     }

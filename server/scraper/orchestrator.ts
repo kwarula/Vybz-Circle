@@ -79,13 +79,18 @@ export async function runScraper(
 
     console.log(`\n📊 Scrape complete: ${totalEvents} total events from ${results.length} platforms`);
 
-    return {
+    const runResult: ScraperRunResult = {
         startedAt,
         completedAt: new Date(),
         platforms: results,
         totalEvents,
         success: allSuccess
     };
+
+    // Log the run to database
+    await logScraperRun(runResult);
+
+    return runResult;
 }
 
 /**
@@ -323,4 +328,35 @@ export async function getScraperStatus(): Promise<{
         lastRun: lastScraped?.scraped_at ? new Date(lastScraped.scraped_at) : null,
         platformStats: platformStats as Record<PlatformId, { count: number; lastScraped: Date | null }>
     };
+}
+
+/**
+ * Log a scraper run to the database
+ */
+export async function logScraperRun(result: ScraperRunResult): Promise<void> {
+    try {
+        const { error } = await supabase
+            .from('scraper_runs')
+            .insert({
+                started_at: result.startedAt.toISOString(),
+                completed_at: result.completedAt.toISOString(),
+                status: result.success ? 'completed' : 'failed',
+                total_events: result.totalEvents,
+                events_inserted: result.platforms.reduce((sum, p) => sum + p.eventsInserted, 0),
+                events_updated: result.platforms.reduce((sum, p) => sum + p.eventsUpdated, 0),
+                platform_results: result.platforms,
+                error_message: result.success ? null : result.platforms
+                    .filter(p => !p.success)
+                    .map(p => `${p.platformId}: ${p.errors.join(', ')}`)
+                    .join('; ')
+            });
+
+        if (error) {
+            console.error('Failed to log scraper run:', error);
+        } else {
+            console.log('✅ Scraper run logged to database');
+        }
+    } catch (err) {
+        console.error('Error logging scraper run:', err);
+    }
 }

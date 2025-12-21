@@ -79,10 +79,8 @@ export async function extractFromUrls(options: ExtractOptions): Promise<Firecraw
             },
             body: JSON.stringify({
                 urls,
-                prompt,
-                schema,
-                enableWebSearch: false,
-                allowExternalLinks: false
+                prompt: `${prompt}\n\nIMPORTANT: Return a JSON object with an 'events' array containing all the events you find.`,
+                schema
             })
         });
 
@@ -171,6 +169,13 @@ export async function extractPlatformEvents(
     maxRetries: number = 2
 ): Promise<FirecrawlExtractResponse> {
     const url = `${platform.baseUrl}${platform.eventsPath}`;
+
+    // For TicketSasa, use scrape + markdown parsing (more reliable)
+    if (platform.id === 'ticketsasa') {
+        return await scrapeAndParseTicketSasa(url, maxRetries);
+    }
+
+    // For other platforms, use extract API
     let lastError: FirecrawlError | null = null;
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
@@ -244,4 +249,66 @@ function isFirecrawlError(error: unknown): error is FirecrawlError {
  */
 export function isFirecrawlConfigured(): boolean {
     return !!process.env.FIRECRAWL_API_KEY;
+}
+
+/**
+ * Scrape and parse TicketSasa using markdown (more reliable than extract API)
+ */
+export async function scrapeAndParseTicketSasa(url: string, maxRetries: number = 2): Promise<FirecrawlExtractResponse> {
+    const apiKey = process.env.FIRECRAWL_API_KEY;
+    if (!apiKey) {
+        throw createError("FIRECRAWL_API_KEY not configured", 500, false);
+    }
+
+    const { parseTicketSasaMarkdown } = await import('./markdownParser');
+
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+            console.log(`🔍 [TicketSasa] Attempt ${attempt + 1}/${maxRetries} - Scraping ${url}`);
+
+            const response = await fetch(`${FIRECRAWL_API_URL}/scrape`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify({
+                    url,
+                    formats: ['markdown']
+                })
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text().catch(() => "Unknown error");
+                throw createError(`Firecrawl scrape error: ${errorText}`, response.status, response.status >= 500);
+            }
+
+            const data = await response.json();
+
+            if (!data.success || !data.data?.markdown) {
+                throw createError("No markdown content returned", 500, true);
+            }
+
+            const markdown = data.data.markdown;
+            const events = parseTicketSasaMarkdown(markdown, 'https://ticketsasa.com');
+
+            console.log(`✅ [TicketSasa] Parsed ${events.length} events from markdown`);
+
+            return {
+                success: true,
+                data: { events }
+            };
+        } catch (error) {
+            if (isFirecrawlError(error) && !error.retryable) {
+                throw error;
+            }
+
+            if (attempt < maxRetries - 1) {
+                console.log(`⏳ [TicketSasa] Waiting 3s before retry...`);
+                await sleep(3000);
+            }
+        }
+    }
+
+    throw createError("Failed to scrape TicketSasa after retries", 500, false);
 }

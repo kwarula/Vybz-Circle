@@ -23,6 +23,7 @@ import InterestSelectionScreen from "@/screens/auth/InterestSelectionScreen";
 import CreateCrewScreen from "@/screens/circle/CreateCrewScreen";
 import LeaderboardScreen from "@/screens/gamification/LeaderboardScreen";
 import AchievementsScreen from "@/screens/gamification/AchievementsScreen";
+import AdminDashboardScreen from "@/screens/AdminDashboardScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { UberLocation } from "@/lib/uber";
 
@@ -45,6 +46,7 @@ export type RootStackParamList = {
   CreateCrew: undefined;
   Leaderboard: undefined;
   Achievements: undefined;
+  AdminDashboard: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -225,6 +227,13 @@ export default function RootStackNavigator() {
       <Stack.Screen
         name="Achievements"
         component={AchievementsScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="AdminDashboard"
+        component={AdminDashboardScreen}
         options={{
           headerShown: false,
         }}

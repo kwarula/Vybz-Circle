@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import * as WebBrowser from "expo-web-browser";
-import { View, StyleSheet, ScrollView, Pressable, Image, Dimensions, Share, StatusBar, Platform } from "react-native";
+import { View, StyleSheet, ScrollView, Pressable, Image, Dimensions, Share, StatusBar, Platform, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -8,13 +8,13 @@ import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
+import { useQuery } from "@tanstack/react-query";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Avatar } from "@/components/Avatar";
 import { GlassView } from "@/components/GlassView";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors, Shadows, Gradients } from "@/constants/theme";
-import { mockEvents } from "@/data/mockData";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 const API_URL = process.env.EXPO_PUBLIC_DOMAIN || 'http://localhost:5000';
@@ -32,7 +32,45 @@ export default function EventDetailScreen() {
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [selectedTier, setSelectedTier] = useState<string>("regular");
 
-  const event = mockEvents.find((e) => e.id === route.params.eventId) || mockEvents[0];
+  // Adapter to transform Backend Event to UI Event
+  const adaptEvent = (beEvent: any): any => ({
+    ...beEvent,
+    organizer: beEvent.organizer || {
+      id: beEvent.organizer_id || "1",
+      name: beEvent.organizer_name || "Event Organizer",
+      avatar: "https://i.pravatar.cc/150?img=12"
+    },
+    price: beEvent.min_price || beEvent.price || 0,
+    venue: beEvent.venue_name || beEvent.location?.name || "TBD",
+    location: beEvent.location?.city || beEvent.location?.name || "Nairobi",
+    date: beEvent.starts_at
+      ? new Date(beEvent.starts_at).toLocaleDateString("en-US", { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
+      : beEvent.date || "TBD",
+    time: beEvent.starts_at
+      ? new Date(beEvent.starts_at).toLocaleTimeString("en-US", { hour: '2-digit', minute: '2-digit' })
+      : beEvent.time || "TBD",
+  });
+
+  // Fetch event from API
+  const { data: rawEvent, isLoading } = useQuery({
+    queryKey: ['event', route.params.eventId],
+    queryFn: async () => {
+      const res = await fetch(`${API_URL}/api/events/${route.params.eventId}`);
+      if (!res.ok) throw new Error("Failed to fetch event");
+      const data = await res.json();
+      return adaptEvent(data);
+    }
+  });
+
+  if (isLoading || !rawEvent) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.backgroundRoot, justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={Colors.light.primary} />
+      </View>
+    );
+  }
+
+  const event = rawEvent;
 
   const ticketTiers = [
     { id: "early", name: "Early Bird", price: event.price * 0.8, available: 50 },

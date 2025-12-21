@@ -13,7 +13,8 @@ import { EventCard } from "@/components/EventCard";
 import { Avatar } from "@/components/Avatar";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors, Shadows } from "@/constants/theme";
-import { currentUser, mockEvents } from "@/data/mockData";
+import { currentUser } from "@/data/mockData";
+import { useEvents } from "@/hooks/useEvents";
 import type { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -37,8 +38,9 @@ export default function ProfileScreen() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // Get user's events
-  const myEvents = mockEvents.filter((e) => e.isGoing);
+  // Get user's events from API
+  const { data: allEvents = [], refetch } = useEvents();
+  const myEvents = allEvents.filter((e: any) => e.isGoing);
 
   // Filter by tab
   const displayedEvents = myEvents.filter((event) => {
@@ -58,12 +60,14 @@ export default function ProfileScreen() {
     { icon: "credit-card", label: "Wallet", value: "KES 2,500", screen: null },
     { icon: "tag", label: "My Tickets", value: "3", screen: "MyTickets" },
     { icon: "award", label: "Achievements", value: "New", screen: null },
+    { icon: "shield", label: "Admin Dashboard", value: null, screen: "AdminDashboard" },
   ];
 
-  const onRefresh = useCallback(() => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 1500);
-  }, []);
+    await refetch();
+    setRefreshing(false);
+  }, [refetch]);
 
   const handleMenuPress = (label: string, screen: string | null) => {
     Haptics.selectionAsync();

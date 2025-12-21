@@ -199,6 +199,142 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ========================================
+  // ADMIN API ENDPOINTS
+  // ========================================
+
+  // Get all events with admin filters
+  app.get("/api/admin/events", async (req, res) => {
+    try {
+      const { source, status, search, limit = '50', offset = '0' } = req.query;
+
+      const supabase = createClient(
+        process.env.EXPO_PUBLIC_SUPABASE_URL!,
+        process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!
+      );
+
+      let query = supabase
+        .from('events')
+        .select('*', { count: 'exact' })
+        .order('created_at', { ascending: false });
+
+      if (source) {
+        query = query.eq('source_platform', source);
+      }
+
+      if (status === 'external') {
+        query = query.eq('is_external', true);
+      } else if (status === 'internal') {
+        query = query.eq('is_external', false);
+      }
+
+      if (search) {
+        query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%`);
+      }
+
+      query = query.range(parseInt(offset as string), parseInt(offset as string) + parseInt(limit as string) - 1);
+
+      const { data, error, count } = await query;
+
+      if (error) throw error;
+
+      res.json({ events: data, total: count });
+    } catch (error) {
+      console.error("Error fetching admin events:", error);
+      res.status(500).json({ error: "Failed to fetch events" });
+    }
+  });
+
+  // Update event
+  app.put("/api/admin/events/:id", async (req, res) => {
+    try {
+      const supabase = createClient(
+        process.env.EXPO_PUBLIC_SUPABASE_URL!,
+        process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!
+      );
+
+      const { data, error } = await supabase
+        .from('events')
+        .update({
+          ...req.body,
+          last_edited_at: new Date().toISOString()
+        })
+        .eq('id', req.params.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      res.json(data);
+    } catch (error) {
+      console.error("Error updating event:", error);
+      res.status(500).json({ error: "Failed to update event" });
+    }
+  });
+
+  // Delete event
+  app.delete("/api/admin/events/:id", async (req, res) => {
+    try {
+      const supabase = createClient(
+        process.env.EXPO_PUBLIC_SUPABASE_URL!,
+        process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!
+      );
+
+      const { error } = await supabase
+        .from('events')
+        .delete()
+        .eq('id', req.params.id);
+
+      if (error) throw error;
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting event:", error);
+      res.status(500).json({ error: "Failed to delete event" });
+    }
+  });
+
+  // Get admin statistics
+  app.get("/api/admin/stats", async (req, res) => {
+    try {
+      const supabase = createClient(
+        process.env.EXPO_PUBLIC_SUPABASE_URL!,
+        process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!
+      );
+
+      const [totalEvents, externalEvents, internalEvents, scraperRuns] = await Promise.all([
+        supabase.from('events').select('*', { count: 'exact', head: true }),
+        supabase.from('events').select('*', { count: 'exact', head: true }).eq('is_external', true),
+        supabase.from('events').select('*', { count: 'exact', head: true }).eq('is_external', false),
+        supabase.from('scraper_runs').select('*', { count: 'exact', head: true })
+      ]);
+
+      // Get events by platform
+      const { data: platformData } = await supabase
+        .from('events')
+        .select('source_platform')
+        .not('source_platform', 'is', null);
+
+      const byPlatform: Record<string, number> = {};
+      platformData?.forEach(e => {
+        if (e.source_platform) {
+          byPlatform[e.source_platform] = (byPlatform[e.source_platform] || 0) + 1;
+        }
+      });
+
+      res.json({
+        total: totalEvents.count || 0,
+        external: externalEvents.count || 0,
+        internal: internalEvents.count || 0,
+        scraperRuns: scraperRuns.count || 0,
+        byPlatform
+      });
+    } catch (error) {
+      console.error("Error fetching stats:", error);
+      res.status(500).json({ error: "Failed to fetch statistics" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

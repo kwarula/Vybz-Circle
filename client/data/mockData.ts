@@ -177,29 +177,6 @@ export const mockEvents: Event[] = [
     organizer: { name: "Churchill Show", avatar: "https://i.pravatar.cc/150?img=50" },
     coordinates: { latitude: -1.2864, longitude: 36.8172 },
   },
-  {
-    id: "ts-external-1",
-    title: "Nairobi Festival 2025",
-    date: "Sat, 20 Dec 2024",
-    time: "10:00 AM",
-    location: "CBD, Nairobi",
-    venue: "Uhuru Park",
-    imageUrl: "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=800",
-    price: 1500,
-    currency: "KES",
-    category: "Festival",
-    attendees: 540,
-    isPremium: true,
-    isGoing: false,
-    rating: 4.9,
-    description: "The biggest cultural festival in Nairobi! Music, food, and art from across the country. Tickets available exclusively on TicketSasa.",
-    organizer: { name: "Nairobi County", avatar: "https://i.pravatar.cc/150?img=51" },
-    coordinates: { latitude: -1.2891, longitude: 36.8177 },
-    // @ts-ignore
-    is_external: true,
-    source_url: "https://ticketsasa.com/events/details/nairobi_festival_2024",
-    price_range: "From KES 1,500"
-  },
 ];
 
 export const mockVenues: Venue[] = [
