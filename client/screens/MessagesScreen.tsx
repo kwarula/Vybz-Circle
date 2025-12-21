@@ -1,9 +1,12 @@
 import React, { useState } from "react";
-import { FlatList, View, StyleSheet, Pressable } from "react-native";
+import { FlatList, View, StyleSheet, Pressable, StatusBar } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
+import Animated, { FadeInDown } from "react-native-reanimated";
 
 import { ThemedText } from "@/components/ThemedText";
 import { MessageCard } from "@/components/MessageCard";
@@ -11,12 +14,16 @@ import { SearchBar } from "@/components/SearchBar";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, Colors, BorderRadius, Shadows } from "@/constants/theme";
 import { mockMessages } from "@/data/mockData";
+import type { RootStackParamList } from "@/navigation/RootStackNavigator";
+
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 export default function MessagesScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
+  const navigation = useNavigation<NavigationProp>();
   const [searchQuery, setSearchQuery] = useState("");
 
   const filteredMessages = mockMessages.filter((msg) =>
@@ -24,15 +31,16 @@ export default function MessagesScreen() {
   );
 
   const handleMessagePress = (messageId: string) => {
-    // Navigation to chat would go here
+    navigation.navigate("Chat", { messageId });
   };
 
   const ListHeader = () => (
     <View style={styles.listHeader}>
+      <ThemedText type="h2" style={{ marginBottom: Spacing.xl }}>Messages</ThemedText>
       <SearchBar
         value={searchQuery}
         onChangeText={setSearchQuery}
-        placeholder="Search crews..."
+        placeholder="Search conversations..."
       />
     </View>
   );
@@ -40,10 +48,10 @@ export default function MessagesScreen() {
   const EmptyState = () => (
     <View style={styles.emptyState}>
       <View style={[styles.emptyIcon, { backgroundColor: theme.backgroundSecondary }]}>
-        <Feather name="message-circle" size={48} color={theme.textMuted} />
+        <Feather name="message-circle" size={40} color={theme.textMuted} />
       </View>
-      <ThemedText type="h3" style={styles.emptyTitle}>No messages yet</ThemedText>
-      <ThemedText type="body" secondary style={styles.emptyText}>
+      <ThemedText type="h3" style={{ marginTop: Spacing.xl }}>No messages yet</ThemedText>
+      <ThemedText type="body" style={{ color: theme.textMuted, marginTop: Spacing.sm, textAlign: 'center' }}>
         Join a crew or start a conversation to see your messages here
       </ThemedText>
     </View>
@@ -51,12 +59,13 @@ export default function MessagesScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
       <FlatList
         style={styles.list}
         contentContainerStyle={{
-          paddingTop: headerHeight + Spacing.lg,
+          paddingTop: headerHeight + Spacing.xl,
           paddingBottom: tabBarHeight + Spacing["3xl"],
-          paddingHorizontal: Spacing.lg,
+          paddingHorizontal: Spacing.xl,
           flexGrow: 1,
         }}
         scrollIndicatorInsets={{ bottom: insets.bottom }}
@@ -64,8 +73,10 @@ export default function MessagesScreen() {
         keyExtractor={(item) => item.id}
         ListHeaderComponent={ListHeader}
         ListEmptyComponent={EmptyState}
-        renderItem={({ item }) => (
-          <MessageCard message={item} onPress={() => handleMessagePress(item.id)} />
+        renderItem={({ item, index }) => (
+          <Animated.View entering={FadeInDown.delay(index * 60).duration(400)}>
+            <MessageCard message={item} onPress={() => handleMessagePress(item.id)} />
+          </Animated.View>
         )}
         showsVerticalScrollIndicator={false}
       />
@@ -98,6 +109,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: Spacing["3xl"],
+    paddingTop: 60,
   },
   emptyIcon: {
     width: 100,
@@ -105,21 +117,13 @@ const styles = StyleSheet.create({
     borderRadius: 50,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: Spacing.xl,
-  },
-  emptyTitle: {
-    marginBottom: Spacing.sm,
-    textAlign: "center",
-  },
-  emptyText: {
-    textAlign: "center",
   },
   fabButton: {
     position: "absolute",
-    right: Spacing.lg,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    right: Spacing.xl,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     alignItems: "center",
     justifyContent: "center",
   },

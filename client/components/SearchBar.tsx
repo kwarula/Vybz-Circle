@@ -1,15 +1,17 @@
 import React from "react";
 import { StyleSheet, View, TextInput, Pressable } from "react-native";
 import { Feather } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius } from "@/constants/theme";
+import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 
 interface SearchBarProps {
   value: string;
   onChangeText: (text: string) => void;
   placeholder?: string;
   onFilterPress?: () => void;
+  showFilter?: boolean;
 }
 
 export function SearchBar({
@@ -17,8 +19,19 @@ export function SearchBar({
   onChangeText,
   placeholder = "Search...",
   onFilterPress,
+  showFilter = true,
 }: SearchBarProps) {
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
+
+  const handleFilterPress = () => {
+    Haptics.selectionAsync();
+    onFilterPress?.();
+  };
+
+  const handleClear = () => {
+    Haptics.selectionAsync();
+    onChangeText("");
+  };
 
   return (
     <View
@@ -26,23 +39,48 @@ export function SearchBar({
         styles.container,
         {
           backgroundColor: theme.backgroundSecondary,
-          borderColor: theme.border,
         },
       ]}
     >
-      <Feather name="search" size={20} color={theme.textSecondary} />
+      {/* Search Icon */}
+      <View style={styles.iconContainer}>
+        <Feather name="search" size={20} color={theme.textMuted} />
+      </View>
+
+      {/* Input */}
       <TextInput
         style={[styles.input, { color: theme.text }]}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
         placeholderTextColor={theme.textMuted}
+        returnKeyType="search"
       />
-      {onFilterPress ? (
-        <Pressable onPress={onFilterPress} style={styles.filterButton}>
-          <Feather name="sliders" size={20} color={theme.textSecondary} />
+
+      {/* Clear Button (when text exists) */}
+      {value.length > 0 && (
+        <Pressable onPress={handleClear} style={styles.clearButton}>
+          <View style={[styles.clearIcon, { backgroundColor: theme.textMuted }]}>
+            <Feather name="x" size={12} color={theme.backgroundSecondary} />
+          </View>
         </Pressable>
-      ) : null}
+      )}
+
+      {/* Filter Button - Always visible, Airbnb style */}
+      {showFilter && (
+        <>
+          <View style={[styles.divider, { backgroundColor: theme.border }]} />
+          <Pressable
+            onPress={handleFilterPress}
+            style={({ pressed }) => [
+              styles.filterButton,
+              { backgroundColor: pressed ? theme.backgroundTertiary : 'transparent' },
+            ]}
+          >
+            <Feather name="sliders" size={18} color={theme.textSecondary} />
+          </Pressable>
+        </>
+      )}
     </View>
   );
 }
@@ -51,17 +89,39 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: Spacing.lg,
-    height: 48,
-    borderRadius: BorderRadius.full,
-    borderWidth: 1,
-    gap: Spacing.sm,
+    height: 52,
+    borderRadius: BorderRadius.lg,
+    paddingLeft: Spacing.lg,
+    paddingRight: Spacing.xs,
+  },
+  iconContainer: {
+    marginRight: Spacing.md,
   },
   input: {
     flex: 1,
     fontSize: 16,
+    height: "100%",
+  },
+  clearButton: {
+    padding: Spacing.sm,
+  },
+  clearIcon: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  divider: {
+    width: 1,
+    height: 24,
+    marginHorizontal: Spacing.sm,
   },
   filterButton: {
-    padding: Spacing.xs,
+    width: 40,
+    height: 40,
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

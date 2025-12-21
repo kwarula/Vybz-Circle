@@ -1,189 +1,330 @@
 import React, { useState, useCallback } from "react";
-import { FlatList, View, StyleSheet, ScrollView, Image, Pressable } from "react-native";
+import { FlatList, View, StyleSheet, ScrollView, Image, Pressable, Alert, StatusBar } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation } from "@react-navigation/native";
-import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
+import Animated, {
+  FadeInDown,
+  FadeInRight,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming
+} from "react-native-reanimated";
 
+import { LinearGradient } from 'expo-linear-gradient';
 import { ThemedText } from "@/components/ThemedText";
 import { EventCard } from "@/components/EventCard";
 import { CategoryChip } from "@/components/CategoryChip";
 import { Avatar } from "@/components/Avatar";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, Colors } from "@/constants/theme";
-import { mockEvents, categories, currentUser } from "@/data/mockData";
-import type { RootStackParamList } from "@/navigation/RootStackNavigator";
+import { Spacing, Colors, Shadows, BorderRadius } from "@/constants/theme";
+import { useEvents } from "@/hooks/useEvents";
+import { currentUser, categories } from "@/data/mockData";
 
-type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+const VISUAL_CATEGORIES = [
+  { id: "All", label: "Discovery", icon: "compass", colors: ["#8B5CF6", "#A78BFA"] },
+  { id: "Music", label: "Music", icon: "music", colors: ["#EC4899", "#F472B6"] },
+  { id: "Wellness", label: "Wellness", icon: "heart", colors: ["#10B981", "#34D399"] },
+  { id: "Social", label: "Social", icon: "users", colors: ["#F59E0B", "#FBBF24"] },
+  { id: "Networking", label: "Network", icon: "zap", colors: ["#3B82F6", "#60A5FA"] },
+  { id: "Comedy", label: "Comedy", icon: "smile", colors: ["#EF4444", "#F87171"] },
+  { id: "Sports", label: "Sports", icon: "award", colors: ["#6366F1", "#818CF8"] },
+  { id: "Food", label: "Food", icon: "coffee", colors: ["#F97316", "#FB923C"] },
+];
+
+const VisualCategoryCard = ({ item, isSelected, onPress, index }: any) => {
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: withSpring(isSelected ? 1.05 : 1) }],
+    opacity: withTiming(1, { duration: 500 }),
+  }));
+
+  return (
+    <Animated.View
+      entering={FadeInRight.delay(index * 100).duration(600).springify()}
+      style={animatedStyle}
+    >
+      <Pressable
+        onPress={() => {
+          Haptics.selectionAsync();
+          onPress();
+        }}
+        style={({ pressed }) => [
+          styles.visualCard,
+          {
+            borderColor: isSelected ? item.colors[0] : 'transparent',
+            borderWidth: isSelected ? 2 : 0,
+          }
+        ]}
+      >
+        <LinearGradient
+          colors={isSelected ? item.colors : ['#1A1A1A', '#111111']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.cardGradient}
+        >
+          <View style={[styles.cardIconContainer, { backgroundColor: isSelected ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.05)' }]}>
+            <Feather name={item.icon} size={24} color={isSelected ? "#FFF" : "#737373"} />
+          </View>
+          <ThemedText
+            type="small"
+            style={[styles.cardLabel, { color: isSelected ? "#FFF" : "#737373" }]}
+          >
+            {item.label}
+          </ThemedText>
+        </LinearGradient>
+      </Pressable>
+    </Animated.View>
+  );
+};
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
-  const { theme } = useTheme();
-  const navigation = useNavigation<NavigationProp>();
+  const navigation = useNavigation<any>();
   const [selectedCategory, setSelectedCategory] = useState("All");
-  const [activeTab, setActiveTab] = useState<"all" | "upcoming" | "past">("all");
+  const [notificationCount] = useState(3);
 
-  const filteredEvents = mockEvents.filter((event) => {
+  const { theme, isDark } = useTheme();
+  const { data: events = [] } = useEvents();
+
+  // Create derived state
+  const trendingEvents = [...events]
+    .sort((a: any, b: any) => b.attendees - a.attendees)
+    .slice(0, 5);
+
+  const filteredEvents = events.filter((event: any) => {
     if (selectedCategory === "All") return true;
     return event.category === selectedCategory;
   });
-
-  const getEventCount = (category: string) => {
-    if (category === "All") return mockEvents.length;
-    return mockEvents.filter((e) => e.category === category).length;
-  };
 
   const handleEventPress = useCallback((eventId: string) => {
     navigation.navigate("EventDetail", { eventId });
   }, [navigation]);
 
-  const getCurrentDate = () => {
-    const options: Intl.DateTimeFormatOptions = { 
-      weekday: "long", 
-      day: "numeric", 
-      month: "short", 
-      year: "numeric" 
-    };
-    return new Date().toLocaleDateString("en-US", options);
+  const navigateToProfile = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const parent = navigation.getParent();
+    if (parent) {
+      parent.navigate("ProfileTab");
+    }
+  };
+
+  const showNotifications = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigation.navigate("Notifications");
+  };
+
+  const handleAISearch = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Alert.alert("AI Assistant", "How can I help you find the perfect event today?");
   };
 
   const ListHeader = () => (
-    <View style={styles.listHeader}>
-      <View style={styles.greeting}>
+    <View style={styles.headerContainer}>
+      {/* GREETING HEADER */}
+      <View style={styles.greetingHeader}>
         <View>
-          <ThemedText type="h1">Hi, {currentUser.name}</ThemedText>
-          <ThemedText type="small" secondary>{getCurrentDate()}</ThemedText>
+          <ThemedText type="small" style={{ color: theme.textMuted, letterSpacing: 1, textTransform: 'uppercase' }}>
+            Welcome back
+          </ThemedText>
+          <ThemedText type="h1">{currentUser.name}</ThemedText>
         </View>
-        <Avatar uri={currentUser.avatar} size={48} />
+        <View style={styles.headerActions}>
+          <Pressable
+            onPress={handleAISearch}
+            style={[styles.iconButton, { backgroundColor: theme.backgroundSecondary }]}
+          >
+            <Feather name="search" size={20} color={theme.text} />
+          </Pressable>
+          <Pressable
+            onPress={showNotifications}
+            style={[styles.iconButton, { backgroundColor: theme.backgroundSecondary }]}
+          >
+            <Feather name="bell" size={20} color={theme.text} />
+            {notificationCount > 0 && <View style={styles.dot} />}
+          </Pressable>
+          <Pressable onPress={navigateToProfile}>
+            <Avatar uri={currentUser.avatar} size={44} />
+          </Pressable>
+        </View>
       </View>
 
-      <View style={styles.tabs}>
-        <Pressable
-          style={[
-            styles.tab,
-            activeTab === "all" && { backgroundColor: Colors.light.primary },
-          ]}
-          onPress={() => setActiveTab("all")}
+      {/* HERO CAROUSEL SECTION */}
+      <View style={styles.heroSection}>
+        <View style={styles.sectionHeader}>
+          <ThemedText type="h2">Featured</ThemedText>
+          <Pressable>
+            <ThemedText type="small" style={{ color: Colors.light.primary }}>See all</ThemedText>
+          </Pressable>
+        </View>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.trendingList}
+          decelerationRate="fast"
+          snapToInterval={316} // card width (300) + gap (16)
         >
-          <ThemedText
-            type="small"
-            style={[
-              styles.tabText,
-              { color: activeTab === "all" ? "#FFF" : theme.text },
-            ]}
-          >
-            All {mockEvents.length}
-          </ThemedText>
-        </Pressable>
-        <Pressable
-          style={[
-            styles.tab,
-            activeTab === "upcoming" && { backgroundColor: Colors.light.primary },
-          ]}
-          onPress={() => setActiveTab("upcoming")}
-        >
-          <ThemedText
-            type="small"
-            style={[
-              styles.tabText,
-              { color: activeTab === "upcoming" ? "#FFF" : theme.text },
-            ]}
-          >
-            Upcoming events {mockEvents.filter(e => e.isGoing).length}
-          </ThemedText>
-        </Pressable>
-        <Pressable
-          style={[
-            styles.tab,
-            activeTab === "past" && { backgroundColor: Colors.light.primary },
-          ]}
-          onPress={() => setActiveTab("past")}
-        >
-          <ThemedText
-            type="small"
-            style={[
-              styles.tabText,
-              { color: activeTab === "past" ? "#FFF" : theme.text },
-            ]}
-          >
-            Past events 8
-          </ThemedText>
-        </Pressable>
+          {trendingEvents.map((event: any, index: number) => (
+            <Animated.View key={event.id} entering={FadeInDown.delay(index * 80).duration(500)}>
+              <EventCard
+                event={event}
+                variant="immersive"
+                onPress={() => handleEventPress(event.id)}
+              />
+            </Animated.View>
+          ))}
+        </ScrollView>
       </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.categoriesScroll}
-      >
-        {categories.map((category) => (
-          <CategoryChip
-            key={category}
-            label={category}
-            isSelected={selectedCategory === category}
-            onPress={() => setSelectedCategory(category)}
-            count={category === "All" ? undefined : getEventCount(category)}
-          />
-        ))}
-      </ScrollView>
+      {/* VISUAL CATEGORIES */}
+      <View style={styles.categorySection}>
+        <View style={styles.sectionHeader}>
+          <ThemedText type="h2">Explore</ThemedText>
+        </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoriesScroll}
+        >
+          {VISUAL_CATEGORIES.map((item, index) => (
+            <VisualCategoryCard
+              key={item.id}
+              item={item}
+              index={index}
+              isSelected={selectedCategory === item.id}
+              onPress={() => setSelectedCategory(item.id)}
+            />
+          ))}
+        </ScrollView>
+      </View>
+
+      {/* EXPLORE NEARBY SECTION HEADER */}
+      <View style={styles.sectionHeader}>
+        <ThemedText type="h2">Live Events</ThemedText>
+      </View>
     </View>
   );
 
   return (
-    <FlatList
-      style={{ flex: 1, backgroundColor: theme.backgroundRoot }}
-      contentContainerStyle={{
-        paddingTop: headerHeight + Spacing.lg,
-        paddingBottom: tabBarHeight + Spacing["3xl"],
-        paddingHorizontal: Spacing.lg,
-      }}
-      scrollIndicatorInsets={{ bottom: insets.bottom }}
-      data={filteredEvents}
-      keyExtractor={(item) => item.id}
-      ListHeaderComponent={ListHeader}
-      renderItem={({ item }) => (
-        <EventCard
-          event={item}
-          onPress={() => handleEventPress(item.id)}
-        />
-      )}
-      showsVerticalScrollIndicator={false}
-    />
+    <View style={[styles.root, { backgroundColor: theme.backgroundRoot }]}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+      <FlatList
+        data={filteredEvents}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item, index }) => (
+          <Animated.View entering={FadeInDown.delay(300 + (index * 50)).duration(400)}>
+            <EventCard
+              event={item}
+              onPress={() => handleEventPress(item.id)}
+            />
+          </Animated.View>
+        )}
+        ListHeaderComponent={ListHeader}
+        contentContainerStyle={{
+          paddingTop: insets.top + Spacing.lg,
+          paddingBottom: tabBarHeight + Spacing["3xl"],
+          paddingHorizontal: Spacing.xl,
+        }}
+        showsVerticalScrollIndicator={false}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  listHeader: {
+  root: {
+    flex: 1,
+  },
+  headerContainer: {
     marginBottom: Spacing.lg,
   },
-  greeting: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: Spacing["2xl"],
+  greetingHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.section,
   },
-  tabs: {
-    flexDirection: "row",
-    gap: Spacing.sm,
-    marginBottom: Spacing.lg,
-    flexWrap: "wrap",
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
-  tab: {
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
-    borderRadius: 100,
-    borderWidth: 1,
-    borderColor: "transparent",
+  iconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: BorderRadius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  tabText: {
-    fontWeight: "500",
+  dot: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: Colors.light.error,
+    borderWidth: 2,
+    borderColor: '#000',
+  },
+  heroSection: {
+    marginBottom: Spacing.section,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.xl,
+  },
+  trendingList: {
+    paddingRight: Spacing.xl,
+  },
+  categorySection: {
+    marginBottom: Spacing.section,
   },
   categoriesScroll: {
-    gap: Spacing.sm,
-    paddingVertical: Spacing.xs,
+    gap: Spacing.md,
+    paddingRight: Spacing.xl,
+  },
+  visualCard: {
+    width: 80,
+    height: 100,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  cardGradient: {
+    flex: 1,
+    padding: 12,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  cardIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardLabel: {
+    fontWeight: '600',
+    fontSize: 11,
+    textAlign: 'center',
+  },
+  fabContainer: {
+    position: "absolute",
+    right: Spacing.xl,
+  },
+  fab: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

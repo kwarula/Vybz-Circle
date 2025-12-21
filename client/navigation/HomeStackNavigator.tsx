@@ -23,8 +23,7 @@ export default function HomeStackNavigator() {
         name="Home"
         component={HomeScreen}
         options={{
-          headerTitle: () => <HeaderTitle title="Vybz Circle" />,
-          headerRight: () => <HomeHeaderRight />,
+          headerShown: false
         }}
       />
     </Stack.Navigator>

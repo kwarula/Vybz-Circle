@@ -228,14 +228,14 @@ function setupErrorHandler(app: express.Application) {
   setupErrorHandler(app);
 
   const port = parseInt(process.env.PORT || "5000", 10);
-  server.listen(
-    {
-      port,
-      host: "0.0.0.0",
-      reusePort: true,
-    },
-    () => {
-      log(`express server serving on port ${port}`);
-    },
-  );
+  server.listen(port, "0.0.0.0", () => {
+    log(`express server serving on port ${port}`);
+
+    // Start the autonomous event scraper scheduler
+    if (process.env.ENABLE_SCRAPER_SCHEDULER === 'true') {
+      import("./scraper/scheduler").then(m => m.startScheduler());
+    } else {
+      log("ℹ️ Scraper scheduler is disabled (ENABLE_SCRAPER_SCHEDULER != true)");
+    }
+  });
 })();

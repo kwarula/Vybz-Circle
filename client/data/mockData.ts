@@ -177,6 +177,29 @@ export const mockEvents: Event[] = [
     organizer: { name: "Churchill Show", avatar: "https://i.pravatar.cc/150?img=50" },
     coordinates: { latitude: -1.2864, longitude: 36.8172 },
   },
+  {
+    id: "ts-external-1",
+    title: "Nairobi Festival 2025",
+    date: "Sat, 20 Dec 2024",
+    time: "10:00 AM",
+    location: "CBD, Nairobi",
+    venue: "Uhuru Park",
+    imageUrl: "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=800",
+    price: 1500,
+    currency: "KES",
+    category: "Festival",
+    attendees: 540,
+    isPremium: true,
+    isGoing: false,
+    rating: 4.9,
+    description: "The biggest cultural festival in Nairobi! Music, food, and art from across the country. Tickets available exclusively on TicketSasa.",
+    organizer: { name: "Nairobi County", avatar: "https://i.pravatar.cc/150?img=51" },
+    coordinates: { latitude: -1.2891, longitude: 36.8177 },
+    // @ts-ignore
+    is_external: true,
+    source_url: "https://ticketsasa.com/events/details/nairobi_festival_2024",
+    price_range: "From KES 1,500"
+  },
 ];
 
 export const mockVenues: Venue[] = [
@@ -299,3 +322,76 @@ export const venueCategories = [
   "Cafe",
   "Rooftops",
 ];
+
+// ========================================
+// CIRCLE TYPES & MOCK DATA
+// ========================================
+
+export type MemberStatus = 'ready' | 'getting_ready' | 'running_late' | 'offline';
+
+export interface CircleMember extends User {
+  status: MemberStatus;
+  eta?: number; // minutes if running late
+  isLocationSharing: boolean;
+}
+
+export type ActivityType = 'location_share' | 'event_add' | 'check_in' | 'message' | 'bill_split';
+
+export interface ActivityItem {
+  id: string;
+  userId: string;
+  userName: string;
+  type: ActivityType;
+  timestamp: string;
+  description: string;
+}
+
+export interface Circle {
+  id: string;
+  name: string;
+  emoji: string;
+  color: string;
+  members: CircleMember[];
+  activeEvent?: Event;
+  statusMessage: string;
+  recentActivity: ActivityItem[];
+}
+
+const circleMembers: CircleMember[] = [
+  { ...mockUsers[0], status: 'ready', isLocationSharing: true },
+  { ...mockUsers[1], status: 'getting_ready', isLocationSharing: false },
+  { ...mockUsers[2], status: 'running_late', eta: 15, isLocationSharing: true },
+  { ...mockUsers[3], status: 'offline', isLocationSharing: false },
+];
+
+export const mockCircles: Circle[] = [
+  {
+    id: "1",
+    name: "Weekend Warriors",
+    emoji: "🔥",
+    color: "#8B5CF6",
+    members: circleMembers,
+    activeEvent: mockEvents[1], // Amapiano Night
+    statusMessage: "Headed to Amapiano Night",
+    recentActivity: [
+      { id: "1", userId: "1", userName: "Alex M.", type: 'location_share', timestamp: "2m ago", description: "Alex shared location" },
+      { id: "2", userId: "2", userName: "Sarah K.", type: 'event_add', timestamp: "15m ago", description: "Sarah added Amapiano Night to plans" },
+      { id: "3", userId: "3", userName: "James O.", type: 'message', timestamp: "1h ago", description: "James sent a message" },
+      { id: "4", userId: "1", userName: "Alex M.", type: 'bill_split', timestamp: "Yesterday", description: "Alex created a bill split" },
+    ],
+  },
+  {
+    id: "2",
+    name: "Yoga Squad",
+    emoji: "🧘",
+    color: "#22C55E",
+    members: circleMembers.slice(0, 2),
+    activeEvent: mockEvents[0], // Sunset Yoga
+    statusMessage: "Morning session tomorrow",
+    recentActivity: [
+      { id: "5", userId: "2", userName: "Sarah K.", type: 'check_in', timestamp: "3h ago", description: "Sarah checked in at Skyline Rooftop" },
+    ],
+  },
+];
+
+export const currentCircle = mockCircles[0];

@@ -1,27 +1,33 @@
 import React, { useState } from "react";
-import { View, StyleSheet, Pressable, Platform, Dimensions, ScrollView } from "react-native";
+import { View, StyleSheet, Pressable, Platform, Dimensions, ScrollView, TextInput, StatusBar } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
+import Animated, { FadeInDown } from "react-native-reanimated";
 
 import { ThemedText } from "@/components/ThemedText";
 import { EventCard } from "@/components/EventCard";
 import { CategoryChip } from "@/components/CategoryChip";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors, Shadows } from "@/constants/theme";
-import { mockEvents, categories } from "@/data/mockData";
+import { categories } from "@/data/mockData";
+import { useEvents } from "@/hooks/useEvents";
 import type { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 let MapView: any = null;
 let Marker: any = null;
 
 if (Platform.OS !== "web") {
-  const Maps = require("react-native-maps");
-  MapView = Maps.default;
-  Marker = Maps.Marker;
+  try {
+    const Maps = require("react-native-maps");
+    MapView = Maps.default;
+    Marker = Maps.Marker;
+  } catch (error) {
+    console.log("Maps not available - using placeholder");
+  }
 }
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -35,52 +41,98 @@ const NAIROBI_REGION = {
   longitudeDelta: 0.1,
 };
 
-function WebMapPlaceholder({ theme, onEventPress }: { theme: any; onEventPress: (id: string) => void }) {
+// Explore View (Web/Fallback)
+function ExploreView({ theme, isDark, onEventPress, navigation }: { theme: any; isDark: boolean; onEventPress: (id: string) => void; navigation: NavigationProp }) {
   const [selectedCategory, setSelectedCategory] = useState("All");
+  const [searchQuery, setSearchQuery] = useState("");
+  const { data: events = [] } = useEvents();
 
-  const filteredEvents = mockEvents.filter((event) => {
-    if (selectedCategory === "All") return true;
-    return event.category === selectedCategory;
+  const filteredEvents = events.filter((event: any) => {
+    const matchesCategory = selectedCategory === "All" || event.category === selectedCategory;
+    const matchesSearch =
+      event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      event.venue.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesCategory && matchesSearch;
   });
 
   return (
-    <View style={[styles.webPlaceholder, { backgroundColor: theme.backgroundSecondary }]}>
-      <View style={[styles.webHeader, { backgroundColor: theme.backgroundDefault }]}>
-        <Feather name="map" size={24} color={Colors.light.primary} />
-        <ThemedText type="h3">Discover Events</ThemedText>
-        <ThemedText type="small" secondary style={{ textAlign: "center" }}>
-          Map view is available on mobile. Use Expo Go to scan the QR code.
-        </ThemedText>
-      </View>
-      
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.webCategories}
-      >
-        {categories.map((category) => (
-          <CategoryChip
-            key={category}
-            label={category}
-            isSelected={selectedCategory === category}
-            onPress={() => setSelectedCategory(category)}
+    <View style={[styles.exploreContainer, { backgroundColor: theme.backgroundRoot }]}>
+      {/* Search Header */}
+      <View style={[styles.exploreHeader, { backgroundColor: theme.backgroundDefault }]}>
+        <View style={[styles.searchBar, { backgroundColor: theme.backgroundSecondary }]}>
+          <Feather name="search" size={20} color={theme.textMuted} />
+          <TextInput
+            placeholder="Search events, venues..."
+            placeholderTextColor={theme.textMuted}
+            style={[styles.searchInput, { color: theme.text }]}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
           />
-        ))}
-      </ScrollView>
+          {searchQuery.length > 0 && (
+            <Pressable onPress={() => setSearchQuery("")} style={styles.clearBtn}>
+              <View style={[styles.clearIcon, { backgroundColor: theme.textMuted }]}>
+                <Feather name="x" size={10} color={theme.backgroundSecondary} />
+              </View>
+            </Pressable>
+          )}
+          <View style={[styles.searchDivider, { backgroundColor: theme.border }]} />
+          <Pressable
+            style={styles.filterBtn}
+            onPress={() => navigation.navigate('FilterModal')}
+          >
+            <Feather name="sliders" size={18} color={theme.textSecondary} />
+          </Pressable>
+        </View>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoriesScroll}
+        >
+          {categories.map((category) => (
+            <CategoryChip
+              key={category}
+              label={category}
+              isSelected={selectedCategory === category}
+              onPress={() => setSelectedCategory(category)}
+            />
+          ))}
+        </ScrollView>
+      </View>
 
       <ScrollView
-        style={styles.webEventsList}
-        contentContainerStyle={styles.webEventsContent}
+        style={styles.eventsList}
+        contentContainerStyle={styles.eventsContent}
         showsVerticalScrollIndicator={false}
       >
-        {filteredEvents.map((event) => (
-          <EventCard
-            key={event.id}
-            event={event}
-            variant="compact"
-            onPress={() => onEventPress(event.id)}
-          />
-        ))}
+        <ThemedText type="h2" style={styles.sectionTitle}>
+          {searchQuery ? `Results for "${searchQuery}"` : "Discover Nearby"}
+        </ThemedText>
+
+        {filteredEvents.length === 0 ? (
+          <View style={styles.emptyState}>
+            <View style={[styles.emptyIcon, { backgroundColor: theme.backgroundSecondary }]}>
+              <Feather name="search" size={32} color={theme.textMuted} />
+            </View>
+            <ThemedText type="h4" style={{ marginTop: Spacing.lg }}>No events found</ThemedText>
+            <ThemedText type="body" style={{ color: theme.textMuted, marginTop: 4 }}>
+              Try adjusting your search or filters
+            </ThemedText>
+          </View>
+        ) : (
+          filteredEvents.map((event: any, index: number) => (
+            <Animated.View
+              key={event.id}
+              entering={FadeInDown.delay(index * 80).duration(400)}
+            >
+              <EventCard
+                event={event}
+                variant="compact"
+                onPress={() => onEventPress(event.id)}
+              />
+            </Animated.View>
+          ))
+        )}
       </ScrollView>
     </View>
   );
@@ -92,7 +144,9 @@ export default function DiscoverScreen() {
   const { theme, isDark } = useTheme();
   const navigation = useNavigation<NavigationProp>();
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
-  const [location, setLocation] = useState("Nairobi");
+  const [location] = useState("Nairobi");
+
+  const { data: events = [] } = useEvents();
 
   const handleMarkerPress = (eventId: string) => {
     setSelectedEvent(eventId);
@@ -106,8 +160,9 @@ export default function DiscoverScreen() {
     navigation.navigate("TopSpots");
   };
 
-  const selectedEventData = mockEvents.find((e) => e.id === selectedEvent);
+  const selectedEventData = events.find((e: any) => e.id === selectedEvent);
 
+  // Use ExploreView if map is unavailable or on web
   if (Platform.OS === "web" || !MapView) {
     return (
       <View
@@ -120,20 +175,22 @@ export default function DiscoverScreen() {
           },
         ]}
       >
-        <WebMapPlaceholder theme={theme} onEventPress={handleEventPress} />
+        <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+        <ExploreView theme={theme} isDark={isDark} onEventPress={handleEventPress} navigation={navigation} />
       </View>
     );
   }
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
+      <StatusBar barStyle="light-content" />
       <MapView
         style={StyleSheet.absoluteFill}
         initialRegion={NAIROBI_REGION}
         showsUserLocation
         showsMyLocationButton={false}
       >
-        {mockEvents.map((event) => (
+        {events.map((event: any) => (
           <Marker
             key={event.id}
             coordinate={event.coordinates}
@@ -164,41 +221,37 @@ export default function DiscoverScreen() {
         ))}
       </MapView>
 
-      <View style={[styles.header, { paddingTop: insets.top + Spacing.md }]}>
-        <BlurView intensity={80} tint={isDark ? "dark" : "light"} style={styles.locationBar}>
+      <View style={[styles.header, { paddingTop: insets.top + Spacing.lg }]}>
+        <Pressable style={[styles.locationBar, { backgroundColor: 'rgba(0,0,0,0.6)' }]}>
           <Feather name="map-pin" size={18} color={Colors.light.primary} />
           <ThemedText type="body" style={styles.locationText}>{location}</ThemedText>
-          <Feather name="chevron-down" size={18} color={theme.textSecondary} />
-        </BlurView>
-        
+          <Feather name="chevron-down" size={18} color="#B3B3B3" />
+        </Pressable>
+
         <View style={styles.headerActions}>
-          <Pressable
-            style={[styles.iconButton, { backgroundColor: theme.backgroundDefault }]}
-          >
-            <Feather name="crosshair" size={20} color={theme.text} />
+          <Pressable style={[styles.iconButton, { backgroundColor: 'rgba(0,0,0,0.6)' }]}>
+            <Feather name="crosshair" size={20} color="#FFF" />
           </Pressable>
           <Pressable
-            style={[styles.iconButton, { backgroundColor: theme.backgroundDefault }]}
-            onPress={handleTopSpotsPress}
+            style={[styles.iconButton, { backgroundColor: 'rgba(0,0,0,0.6)' }]}
+            onPress={() => navigation.navigate("FilterModal")}
           >
-            <Feather name="sliders" size={20} color={theme.text} />
+            <Feather name="sliders" size={20} color="#FFF" />
           </Pressable>
         </View>
       </View>
 
-      <View
+      <Pressable
         style={[
           styles.floatingButton,
           { backgroundColor: theme.backgroundDefault, bottom: tabBarHeight + 180 },
           Shadows.fab,
         ]}
       >
-        <Pressable style={styles.centerBtn}>
-          <Feather name="navigation" size={22} color={Colors.light.primary} />
-        </Pressable>
-      </View>
+        <Feather name="navigation" size={22} color={Colors.light.primary} />
+      </Pressable>
 
-      {selectedEventData ? (
+      {selectedEventData && (
         <View style={[styles.eventPreview, { bottom: tabBarHeight + Spacing["2xl"] }]}>
           <EventCard
             event={selectedEventData}
@@ -206,7 +259,7 @@ export default function DiscoverScreen() {
             onPress={() => handleEventPress(selectedEventData.id)}
           />
         </View>
-      ) : null}
+      )}
 
       <Pressable
         style={[
@@ -233,7 +286,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: Spacing.xl,
     gap: Spacing.md,
   },
   locationBar: {
@@ -244,79 +297,122 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.full,
     gap: Spacing.sm,
-    overflow: "hidden",
   },
   locationText: {
     flex: 1,
-    fontWeight: "500",
+    fontWeight: "600",
+    color: "#FFF",
   },
   headerActions: {
     flexDirection: "row",
     gap: Spacing.sm,
   },
   iconButton: {
-    width: 44,
-    height: 44,
+    width: 48,
+    height: 48,
     borderRadius: BorderRadius.full,
     alignItems: "center",
     justifyContent: "center",
   },
   marker: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     borderWidth: 2,
     alignItems: "center",
     justifyContent: "center",
   },
   floatingButton: {
     position: "absolute",
-    right: Spacing.lg,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  centerBtn: {
-    width: "100%",
-    height: "100%",
+    right: Spacing.xl,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     alignItems: "center",
     justifyContent: "center",
   },
   eventPreview: {
     position: "absolute",
-    left: Spacing.lg,
+    left: Spacing.xl,
   },
   addButton: {
     position: "absolute",
-    right: Spacing.lg,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    right: Spacing.xl,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     alignItems: "center",
     justifyContent: "center",
   },
-  webPlaceholder: {
+  // Explore View Styles
+  exploreContainer: {
     flex: 1,
-    paddingHorizontal: Spacing.lg,
   },
-  webHeader: {
+  exploreHeader: {
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.lg,
+    paddingBottom: Spacing.md,
+  },
+  searchBar: {
+    flexDirection: "row",
     alignItems: "center",
-    padding: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
+    height: 52,
     borderRadius: BorderRadius.lg,
     marginBottom: Spacing.lg,
-    gap: Spacing.sm,
+    gap: Spacing.md,
   },
-  webCategories: {
-    gap: Spacing.sm,
-    paddingVertical: Spacing.sm,
-  },
-  webEventsList: {
+  searchInput: {
     flex: 1,
-    marginTop: Spacing.md,
+    fontSize: 16,
+    height: "100%",
   },
-  webEventsContent: {
-    paddingBottom: Spacing.lg,
+  categoriesScroll: {
+    gap: Spacing.md,
+    paddingBottom: Spacing.sm,
+  },
+  eventsList: {
+    flex: 1,
+  },
+  eventsContent: {
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.xl,
+    paddingBottom: Spacing["3xl"],
+  },
+  sectionTitle: {
+    marginBottom: Spacing.xl,
+  },
+  emptyState: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingTop: 80,
+  },
+  emptyIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  clearBtn: {
+    padding: 4,
+  },
+  clearIcon: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  searchDivider: {
+    width: 1,
+    height: 24,
+  },
+  filterBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

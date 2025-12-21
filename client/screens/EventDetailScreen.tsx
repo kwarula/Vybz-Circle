@@ -1,17 +1,23 @@
 import React, { useState } from "react";
-import { View, StyleSheet, ScrollView, Pressable, Image, Dimensions } from "react-native";
+import * as WebBrowser from "expo-web-browser";
+import { View, StyleSheet, ScrollView, Pressable, Image, Dimensions, Share, StatusBar, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import * as Haptics from "expo-haptics";
+import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Avatar } from "@/components/Avatar";
+import { GlassView } from "@/components/GlassView";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors, Shadows, Gradients } from "@/constants/theme";
 import { mockEvents } from "@/data/mockData";
-import type { RootStackParamList } from "@/navigation/RootStackNavigator";
+import { RootStackParamList } from "@/navigation/RootStackNavigator";
+
+const API_URL = process.env.EXPO_PUBLIC_DOMAIN || 'http://localhost:5000';
 
 type EventDetailRouteProp = RouteProp<RootStackParamList, "EventDetail">;
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -22,7 +28,7 @@ export default function EventDetailScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<EventDetailRouteProp>();
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [selectedTier, setSelectedTier] = useState<string>("regular");
 
@@ -39,161 +45,266 @@ export default function EventDetailScreen() {
   };
 
   const toggleWishlist = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setIsWishlisted(!isWishlisted);
+  };
+
+  const handleShare = async () => {
+    try {
+      await Share.share({
+        title: event.title,
+        message: `Check out ${event.title} at ${event.venue} on ${event.date}! 🎉`,
+      });
+    } catch (error) {
+      // User cancelled share
+    }
+  };
+
+  const handleGetTickets = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+
+    // Check if this is an external event from a scraped platform
+    // @ts-ignore - added via migration but might not be in mock types yet
+    if (event.is_external || event.source_url) {
+      try {
+        // Track the click before redirecting
+        const response = await fetch(`${API_URL}/api/events/${event.id}/track-click`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            // userId: currentUser?.id, // Get this from auth context if available
+            source: 'detail_screen',
+            deviceInfo: { platform: Platform.OS }
+          })
+        });
+
+        const data = await response.json();
+        // @ts-ignore
+        const ticketUrl = data.ticketUrl || event.source_url;
+
+        if (ticketUrl) {
+          await WebBrowser.openBrowserAsync(ticketUrl, {
+            toolbarColor: '#000000',
+            controlsColor: Colors.light.primary,
+            showTitle: true
+          });
+        }
+      } catch (error) {
+        console.error('Failed to track click or open browser:', error);
+        // Fallback: just try to open the URL directly if tracking fails
+        // @ts-ignore
+        if (event.source_url) {
+          // @ts-ignore
+          await WebBrowser.openBrowserAsync(event.source_url);
+        }
+      }
+    } else {
+      // Internal event - go to checkout
+      const selectedTierData = ticketTiers.find((t) => t.id === selectedTier);
+      navigation.navigate("Checkout", {
+        event: event,
+        tier: selectedTierData as any
+      });
+    }
   };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
+      <StatusBar barStyle="light-content" />
+
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={{ paddingBottom: 100 }}
+        contentContainerStyle={{ paddingBottom: 140 }}
         showsVerticalScrollIndicator={false}
       >
+        {/* HERO IMAGE */}
         <View style={styles.heroContainer}>
-          <Image source={{ uri: event.imageUrl }} style={styles.heroImage} />
+          <Image source={{ uri: event.imageUrl }} style={styles.heroImage} resizeMode="cover" />
           <LinearGradient
-            colors={["transparent", "rgba(0,0,0,0.7)"]}
+            colors={Gradients.cardOverlay}
+            locations={[0, 0.3, 0.6, 1]}
             style={styles.heroGradient}
           />
+
+          {/* FLOATING CONTROLS */}
           <View style={[styles.headerButtons, { top: insets.top + Spacing.md }]}>
-            <Pressable
-              onPress={handleClose}
-              style={[styles.iconButton, { backgroundColor: "rgba(0,0,0,0.5)" }]}
-            >
-              <Feather name="x" size={24} color="#FFF" />
+            <Pressable onPress={handleClose} style={styles.glassBtn}>
+              <Feather name="arrow-left" size={20} color="#FFF" />
             </Pressable>
-            <Pressable
-              style={[styles.iconButton, { backgroundColor: "rgba(0,0,0,0.5)" }]}
-            >
-              <Feather name="share" size={20} color="#FFF" />
-            </Pressable>
-          </View>
-          {event.isPremium ? (
-            <View style={[styles.premiumBadge, { backgroundColor: Colors.light.primary }]}>
-              <ThemedText type="tiny" style={{ color: "#FFF", fontWeight: "600" }}>Premium</ThemedText>
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <Pressable onPress={toggleWishlist} style={styles.glassBtn}>
+                <Feather
+                  name="heart"
+                  size={20}
+                  color={isWishlisted ? Colors.light.error : "#FFF"}
+                />
+              </Pressable>
+              <Pressable onPress={handleShare} style={styles.glassBtn}>
+                <Feather name="share" size={20} color="#FFF" />
+              </Pressable>
             </View>
-          ) : null}
+          </View>
         </View>
 
-        <View style={styles.content}>
-          <ThemedText type="hero">{event.title}</ThemedText>
-          
-          <View style={styles.infoCards}>
-            <View style={[styles.infoCard, { backgroundColor: theme.backgroundDefault }]}>
-              <View style={[styles.infoIconContainer, { backgroundColor: theme.backgroundSecondary }]}>
-                <Feather name="calendar" size={20} color={Colors.light.primary} />
+        {/* CONTENT SHEET */}
+        <View style={[styles.contentContainer, { backgroundColor: theme.backgroundRoot }]}>
+          {/* Category + Premium */}
+          <View style={styles.tagRow}>
+            <ThemedText type="tiny" style={{ color: theme.textMuted, textTransform: 'uppercase', letterSpacing: 1 }}>
+              {event.category}
+            </ThemedText>
+            {event.isPremium && (
+              <View style={[styles.premiumBadge, { borderColor: Colors.light.primary }]}>
+                <Feather name="star" size={10} color={Colors.light.primary} />
+                <ThemedText type="tiny" style={{ color: Colors.light.primary }}>Premium</ThemedText>
+              </View>
+            )}
+          </View>
+
+          <ThemedText type="hero" style={{ marginTop: Spacing.sm }}>{event.title}</ThemedText>
+
+          {/* KEY DETAILS */}
+          <View style={styles.keyDetails}>
+            <View style={styles.detailRow}>
+              <View style={[styles.iconBox, { backgroundColor: theme.backgroundSecondary }]}>
+                <Feather name="calendar" size={18} color={Colors.light.primary} />
               </View>
               <View>
-                <ThemedText type="small" style={{ fontWeight: "600" }}>{event.date}</ThemedText>
-                <ThemedText type="tiny" secondary>{event.time}</ThemedText>
+                <ThemedText type="body" style={{ fontWeight: '600' }}>{event.date}</ThemedText>
+                <ThemedText type="small" style={{ color: theme.textSecondary }}>{event.time}</ThemedText>
               </View>
             </View>
-            <View style={[styles.infoCard, { backgroundColor: theme.backgroundDefault }]}>
-              <View style={[styles.infoIconContainer, { backgroundColor: theme.backgroundSecondary }]}>
-                <Feather name="map-pin" size={20} color={Colors.light.primary} />
+            <View style={styles.detailRow}>
+              <View style={[styles.iconBox, { backgroundColor: theme.backgroundSecondary }]}>
+                <Feather name="map-pin" size={18} color={Colors.light.primary} />
               </View>
               <View style={{ flex: 1 }}>
-                <ThemedText type="small" style={{ fontWeight: "600" }}>{event.venue}</ThemedText>
-                <ThemedText type="tiny" secondary numberOfLines={1}>{event.location}</ThemedText>
+                <ThemedText type="body" style={{ fontWeight: '600' }}>{event.venue}</ThemedText>
+                <ThemedText type="small" style={{ color: theme.textSecondary }}>{event.location}</ThemedText>
               </View>
             </View>
           </View>
 
+          <View style={[styles.divider, { backgroundColor: theme.border }]} />
+
+          {/* ABOUT */}
           <View style={styles.section}>
-            <ThemedText type="h3" style={styles.sectionTitle}>About</ThemedText>
-            <ThemedText type="body" secondary>{event.description}</ThemedText>
+            <ThemedText type="h3">About</ThemedText>
+            <ThemedText type="body" style={{ color: theme.textSecondary, lineHeight: 24, marginTop: Spacing.md }}>
+              {event.description}
+            </ThemedText>
           </View>
 
+          {/* ORGANIZER */}
           <View style={styles.section}>
-            <ThemedText type="h3" style={styles.sectionTitle}>Organizer</ThemedText>
+            <ThemedText type="h3">Organizer</ThemedText>
             <View style={[styles.organizerCard, { backgroundColor: theme.backgroundDefault }]}>
               <Avatar uri={event.organizer.avatar} size={48} />
               <View style={{ flex: 1 }}>
                 <ThemedText type="h4">{event.organizer.name}</ThemedText>
-                <ThemedText type="tiny" secondary>Event Organizer</ThemedText>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+                  <Feather name="check-circle" size={12} color={Colors.light.success} />
+                  <ThemedText type="tiny" style={{ color: theme.textMuted, marginLeft: 4 }}>Verified</ThemedText>
+                </View>
               </View>
-              <Pressable style={[styles.followButton, { borderColor: Colors.light.primary }]}>
-                <ThemedText type="small" style={{ color: Colors.light.primary, fontWeight: "600" }}>Follow</ThemedText>
+              <Pressable style={[styles.followBtn, { backgroundColor: Colors.light.primaryMuted }]}>
+                <ThemedText type="small" style={{ color: Colors.light.primary, fontWeight: '600' }}>Follow</ThemedText>
               </Pressable>
             </View>
           </View>
 
-          <View style={styles.section}>
-            <ThemedText type="h3" style={styles.sectionTitle}>Select Tickets</ThemedText>
-            {ticketTiers.map((tier) => (
-              <Pressable
-                key={tier.id}
-                onPress={() => setSelectedTier(tier.id)}
-                style={[
-                  styles.ticketTier,
-                  {
-                    backgroundColor: theme.backgroundDefault,
-                    borderColor: selectedTier === tier.id ? Colors.light.primary : theme.border,
-                    borderWidth: selectedTier === tier.id ? 2 : 1,
-                  },
-                ]}
-              >
-                <View style={styles.ticketTierContent}>
-                  <View>
-                    <ThemedText type="h4">{tier.name}</ThemedText>
-                    <ThemedText type="tiny" secondary>{tier.available} tickets left</ThemedText>
-                  </View>
-                  <ThemedText type="h3" style={{ color: Colors.light.primary }}>
-                    {tier.price === 0 ? "Free" : `KES ${tier.price.toLocaleString()}`}
-                  </ThemedText>
-                </View>
-                {selectedTier === tier.id ? (
-                  <View style={[styles.checkmark, { backgroundColor: Colors.light.primary }]}>
-                    <Feather name="check" size={14} color="#FFF" />
-                  </View>
-                ) : null}
-              </Pressable>
-            ))}
-          </View>
-
-          <View style={styles.section}>
-            <ThemedText type="h3" style={styles.sectionTitle}>Attendees</ThemedText>
-            <View style={styles.attendeesRow}>
-              <View style={styles.avatarStack}>
-                {[1, 2, 3, 4, 5].map((i, index) => (
-                  <Image
-                    key={i}
-                    source={{ uri: `https://i.pravatar.cc/150?img=${i + 10}` }}
-                    style={[styles.attendeeAvatar, { marginLeft: index > 0 ? -12 : 0 }]}
-                  />
+          {/* TICKETS - Only show for internal events */}
+          {/* @ts-ignore */}
+          {!(event.is_external || event.source_url) && (
+            <View style={styles.section}>
+              <ThemedText type="h3">Select Ticket</ThemedText>
+              <View style={{ gap: 12, marginTop: Spacing.lg }}>
+                {ticketTiers.map(tier => (
+                  <Pressable
+                    key={tier.id}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setSelectedTier(tier.id);
+                    }}
+                    style={[
+                      styles.ticketCard,
+                      {
+                        backgroundColor: theme.backgroundDefault,
+                        borderColor: selectedTier === tier.id ? Colors.light.primary : theme.border
+                      },
+                      selectedTier === tier.id && { borderWidth: 2 }
+                    ]}
+                  >
+                    <View>
+                      <ThemedText type="h4">{tier.name}</ThemedText>
+                      <ThemedText type="tiny" style={{ color: theme.textMuted }}>{tier.available} left</ThemedText>
+                    </View>
+                    <ThemedText type="h3" style={{ color: Colors.light.primary }}>
+                      KES {tier.price.toLocaleString()}
+                    </ThemedText>
+                    {selectedTier === tier.id && (
+                      <View style={styles.checkBadge}>
+                        <Feather name="check" size={12} color="#FFF" />
+                      </View>
+                    )}
+                  </Pressable>
                 ))}
               </View>
-              <ThemedText type="body">
-                <ThemedText type="body" style={{ fontWeight: "600" }}>{event.attendees}</ThemedText>
-                <ThemedText type="body" secondary> people going</ThemedText>
-              </ThemedText>
             </View>
-          </View>
+          )}
+
+          {/* External Platform Info */}
+          {/* @ts-ignore */}
+          {(event.is_external || event.source_url) && (
+            <View style={styles.section}>
+              <View style={[styles.externalInfoCard, { backgroundColor: theme.backgroundDefault, borderColor: theme.border }]}>
+                <Feather name="external-link" size={24} color={Colors.light.primary} />
+                <View style={{ flex: 1 }}>
+                  <ThemedText type="h4">External Booking</ThemedText>
+                  <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                    This event is listed on an external platform. You'll be redirected to complete your purchase.
+                  </ThemedText>
+                </View>
+              </View>
+            </View>
+          )}
         </View>
       </ScrollView>
 
-      <View style={[styles.footer, { backgroundColor: theme.backgroundDefault, paddingBottom: insets.bottom + Spacing.md }]}>
-        <Pressable
-          onPress={toggleWishlist}
-          style={[styles.wishlistButton, { borderColor: theme.border }]}
-        >
-          <Feather
-            name={isWishlisted ? "heart" : "heart"}
-            size={24}
-            color={isWishlisted ? Colors.light.error : theme.text}
-          />
-        </Pressable>
-        <Pressable style={styles.ctaButton}>
-          <LinearGradient
-            colors={Gradients.primary}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.ctaGradient}
+      {/* FLOATING FOOTER */}
+      <Animated.View
+        entering={FadeInUp.delay(400)}
+        style={[styles.floatFooter, { backgroundColor: theme.backgroundDefault, paddingBottom: insets.bottom + Spacing.md }]}
+      >
+        <View style={styles.footerContent}>
+          <View>
+            <ThemedText type="tiny" style={{ color: theme.textMuted, textTransform: 'uppercase', letterSpacing: 1 }}>
+              {/* @ts-ignore */}
+              {(event.is_external || event.source_url) ? "Starting at" : "Total"}
+            </ThemedText>
+            <ThemedText type="h2" style={{ color: Colors.light.primary }}>
+              {/* @ts-ignore */}
+              {(event.is_external || event.source_url)
+                // @ts-ignore
+                ? (event.price_range || `KES ${event.price?.toLocaleString() || '0'}`)
+                : `KES ${ticketTiers.find(t => t.id === selectedTier)?.price.toLocaleString()}`
+              }
+            </ThemedText>
+          </View>
+          <Pressable
+            onPress={handleGetTickets}
+            style={({ pressed }) => [
+              styles.ctaButton,
+              { backgroundColor: Colors.light.primary },
+              pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] }
+            ]}
           >
-            <ThemedText type="h4" style={{ color: "#FFF" }}>Get Tickets</ThemedText>
-          </LinearGradient>
-        </Pressable>
-      </View>
+            {/* @ts-ignore */}
+            <ThemedText type="h4" style={{ color: "#FFF" }}>{(event.is_external || event.source_url) ? "Book Now" : "Get Tickets"}</ThemedText>
+            <Feather name="arrow-right" size={20} color="#FFF" />
+          </Pressable>
+        </View>
+      </Animated.View>
     </View>
   );
 }
@@ -206,146 +317,144 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   heroContainer: {
-    position: "relative",
-    height: 300,
+    height: 400,
+    width: '100%',
   },
   heroImage: {
     width: "100%",
     height: "100%",
   },
   heroGradient: {
-    position: "absolute",
-    bottom: 0,
+    position: 'absolute',
+    top: 0,
     left: 0,
     right: 0,
-    height: 150,
+    bottom: 0,
   },
   headerButtons: {
     position: "absolute",
-    left: Spacing.lg,
-    right: Spacing.lg,
+    left: Spacing.xl,
+    right: Spacing.xl,
     flexDirection: "row",
     justifyContent: "space-between",
   },
-  iconButton: {
+  glassBtn: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  contentContainer: {
+    marginTop: -32,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing["2xl"],
+  },
+  tagRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   premiumBadge: {
-    position: "absolute",
-    bottom: Spacing.lg,
-    left: Spacing.lg,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: BorderRadius.sm,
+    borderWidth: 1,
   },
-  content: {
-    padding: Spacing.lg,
+  keyDetails: {
+    marginTop: Spacing["2xl"],
     gap: Spacing.lg,
   },
-  infoCards: {
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: Spacing.md,
   },
-  infoCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: Spacing.lg,
-    borderRadius: BorderRadius.md,
-    gap: Spacing.md,
-  },
-  infoIconContainer: {
+  iconBox: {
     width: 44,
     height: 44,
     borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  divider: {
+    height: 1,
+    marginVertical: Spacing["2xl"],
   },
   section: {
-    gap: Spacing.md,
-  },
-  sectionTitle: {
-    marginBottom: Spacing.xs,
+    marginBottom: Spacing["2xl"],
   },
   organizerCard: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     padding: Spacing.lg,
-    borderRadius: BorderRadius.md,
+    borderRadius: BorderRadius.xl,
     gap: Spacing.md,
+    marginTop: Spacing.lg,
   },
-  followButton: {
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
+  followBtn: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
     borderRadius: BorderRadius.full,
+  },
+  ticketCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: Spacing.xl,
+    borderRadius: BorderRadius.xl,
     borderWidth: 1,
   },
-  ticketTier: {
-    padding: Spacing.lg,
-    borderRadius: BorderRadius.md,
-    marginBottom: Spacing.sm,
-    position: "relative",
+  checkBadge: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    width: 24,
+    height: 24,
+    backgroundColor: Colors.light.primary,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 3,
+    borderColor: '#000',
   },
-  ticketTierContent: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  checkmark: {
-    position: "absolute",
-    top: Spacing.md,
-    right: Spacing.md,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  attendeesRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.md,
-  },
-  avatarStack: {
-    flexDirection: "row",
-  },
-  attendeeAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 2,
-    borderColor: "#FFF",
-  },
-  footer: {
-    position: "absolute",
+  floatFooter: {
+    position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    flexDirection: "row",
-    padding: Spacing.lg,
-    gap: Spacing.md,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "rgba(0,0,0,0.1)",
+    paddingTop: Spacing.lg,
+    paddingHorizontal: Spacing.xl,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.05)',
+    ...Shadows.cardHover,
   },
-  wishlistButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
+  footerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   ctaButton: {
-    flex: 1,
-    height: 56,
-    borderRadius: 12,
-    overflow: "hidden",
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 32,
+    paddingVertical: 16,
+    borderRadius: BorderRadius.full,
   },
-  ctaGradient: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
+  externalInfoCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.xl,
+    borderWidth: 1,
+    marginTop: Spacing.sm,
   },
 });
