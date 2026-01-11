@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { ArrowLeft, MapPin, Calendar, Users, Star, Heart, Share2, Ticket, ExternalLink, Clock, X, Copy, Check } from 'lucide-react'
 import { useEvent } from '@/hooks/useEvents'
 import { Button } from '@/components/Button'
+import { MapboxMap } from '@/components/MapboxMap'
 import { formatDate, formatTime } from '@/lib/utils'
 import { api } from '@/lib/api'
 import { useAuth } from '@/hooks/useAuth'
@@ -253,12 +254,17 @@ export default function EventDetail() {
                         {/* Divider */}
                         <div className="border-t border-surface-tertiary" />
 
-                        {/* Location Map Placeholder */}
+                        {/* Location Map */}
                         {event.venue_name && (
                             <div>
                                 <h2 className="text-2xl font-semibold text-white mb-6">Where you'll be</h2>
-                                <div className="aspect-video rounded-2xl bg-surface/50 flex items-center justify-center mb-4">
-                                    <MapPin className="w-12 h-12 text-text-muted" />
+                                <div className="aspect-video rounded-2xl overflow-hidden mb-4 shadow-xl border border-white/5">
+                                    <MapboxMap
+                                        events={[event]}
+                                        center={[event.longitude || 36.8219, event.latitude || -1.2921]}
+                                        zoom={15}
+                                        className="w-full h-full"
+                                    />
                                 </div>
                                 <p className="text-white font-semibold mb-2">{event.venue_name}</p>
                                 <p className="text-text-secondary text-sm">

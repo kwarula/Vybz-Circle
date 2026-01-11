@@ -30,8 +30,8 @@ const adaptEvent = (beEvent: any): any => {
         rating: 4.5,
         description: beEvent.description || `Join us for ${beEvent.title}`,
         coordinates: {
-            latitude: beEvent.location?.latitude || -1.2921,
-            longitude: beEvent.location?.longitude || 36.8219,
+            latitude: beEvent.latitude || beEvent.location?.latitude || -1.2921,
+            longitude: beEvent.longitude || beEvent.location?.longitude || 36.8219,
         },
         // Scraped event fields
         is_external: beEvent.is_external || false,

@@ -1,9 +1,12 @@
-import { Compass, Filter } from 'lucide-react'
-import { useEvents } from '@/hooks/useEvents'
-import { EventCard } from '@/components/EventCard'
+import { MapboxMap } from '@/components/MapboxMap'
 
 export default function Discover() {
     const { data: events = [], isLoading } = useEvents()
+
+    const handleEventClick = (event: any) => {
+        // Handle event click on map
+        console.log('Event clicked:', event)
+    }
 
     return (
         <div className="min-h-screen">
@@ -12,7 +15,7 @@ export default function Discover() {
 
                 <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-3">
-                        <Compass className="w-8 h-8 text-sunset-orange" />
+                        < Compass className="w-8 h-8 text-sunset-orange" />
                         <h1 className="text-h1 text-white">Discover</h1>
                     </div>
                     <button className="p-3 rounded-xl bg-surface hover:bg-surface-secondary transition-colors">
@@ -20,13 +23,13 @@ export default function Discover() {
                     </button>
                 </div>
 
-                {/* Map Placeholder */}
-                <div className="w-full h-[300px] lg:h-[400px] rounded-2xl bg-surface-secondary flex items-center justify-center mb-8 sticker">
-                    <div className="text-center">
-                        <Compass className="w-12 h-12 text-text-muted mx-auto mb-4" />
-                        <p className="text-h3 text-white">Map Coming Soon</p>
-                        <p className="text-text-secondary">Explore events near you</p>
-                    </div>
+                {/* Map Implementation */}
+                <div className="w-full h-[400px] lg:h-[500px] rounded-2xl overflow-hidden mb-8 shadow-2xl border border-white/5">
+                    <MapboxMap
+                        events={events}
+                        onEventClick={handleEventClick}
+                        className="w-full h-full"
+                    />
                 </div>
             </div>
 
