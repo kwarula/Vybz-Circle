@@ -22,7 +22,7 @@ router.delete("/:id", verifyAuth, async (req: AuthenticatedRequest, res) => {
         // Note: Using service role key for admin operations
         const supabaseAdmin = createClient(
             process.env.EXPO_PUBLIC_SUPABASE_URL!,
-            process.env.SUPABASE_SERVICE_ROLE_KEY!
+            process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!
         );
 
         // We use the admin API to delete the user from auth.users

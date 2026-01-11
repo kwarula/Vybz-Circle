@@ -1,3 +1,6 @@
+import { Compass, Filter } from 'lucide-react'
+import { useEvents } from '@/hooks/useEvents'
+import { EventCard } from '@/components/EventCard'
 import { MapboxMap } from '@/components/MapboxMap'
 
 export default function Discover() {

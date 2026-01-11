@@ -5,8 +5,9 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useAuth } from './useAuth';
 import { VybzAlgorithms } from '@/lib/algorithms';
+import { supabase } from '@/lib/supabase';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const API_BASE = import.meta.env.VITE_API_URL || '';
 
 // ==================== BEHAVIOR TRACKING HOOK ====================
 
@@ -24,7 +25,8 @@ export function useTrackBehavior() {
       actionType: 'view' | 'click' | 'save' | 'purchase' | 'share';
       metadata?: any;
     }) => {
-      const userId = (await import('./useAuth')).useAuth.getState?.()?.user?.id;
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
 
       // Track locally
       await VybzAlgorithms.BehaviorTracker.trackAction(

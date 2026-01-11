@@ -15,8 +15,8 @@ import { createClient } from '@supabase/supabase-js';
 const router = Router();
 
 const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_KEY!
+  process.env.EXPO_PUBLIC_SUPABASE_URL!,
+  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!
 );
 
 // ==================== SOCIAL GRAPH ====================
