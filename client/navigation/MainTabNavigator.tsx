@@ -199,11 +199,18 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: Colors.dark.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    ...Platform.select({
+      web: {
+        boxShadow: '0px 4px 8px rgba(255, 95, 0, 0.3)',
+      },
+      default: {
+        shadowColor: Colors.dark.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 6,
+      },
+    }),
   },
   voiceGlow: {
     position: 'absolute',

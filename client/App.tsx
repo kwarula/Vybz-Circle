@@ -1,6 +1,6 @@
 import "@/global.css";
 import React from "react";
-import { StyleSheet } from "react-native";
+import { StyleSheet, LogBox } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
@@ -12,6 +12,12 @@ import { queryClient } from "@/lib/query-client";
 
 import RootStackNavigator from "@/navigation/RootStackNavigator";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+
+// Suppress development-only warnings
+LogBox.ignoreLogs([
+  "[Reanimated] Reduced motion setting is enabled on this device",
+  "props.pointerEvents is deprecated",
+]);
 
 export default function App() {
   return (

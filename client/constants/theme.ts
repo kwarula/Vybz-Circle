@@ -190,41 +190,66 @@ export const Fonts = Platform.select({
 // SHADOWS - TACTILE & BOLD
 // ============================================
 export const Shadows = {
-  card: {
-    shadowColor: "#000",
-    shadowOffset: { width: s(4), height: s(4) }, // "Off-aligned" look
-    shadowOpacity: 0.2,
-    shadowRadius: 0, // Hard shadows for sticker look
-    elevation: 4,
-  },
-  cardHover: {
-    shadowColor: "#000",
-    shadowOffset: { width: s(6), height: s(6) },
-    shadowOpacity: 0.3,
-    shadowRadius: 0,
-    elevation: 8,
-  },
-  sticker: {
-    shadowColor: "#000",
-    shadowOffset: { width: s(2), height: s(2) },
-    shadowOpacity: 0.5,
-    shadowRadius: 0,
-    elevation: 2,
-  },
-  fab: {
-    shadowColor: sunsetOrange,
-    shadowOffset: { width: 0, height: s(8) },
-    shadowOpacity: 0.4,
-    shadowRadius: ms(16),
-    elevation: 12,
-  },
-  subtle: {
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: s(2) },
-    shadowOpacity: 0.1,
-    shadowRadius: ms(4),
-    elevation: 2,
-  },
+  card: Platform.select({
+    web: {
+      boxShadow: `${s(4)}px ${s(4)}px 0px rgba(0, 0, 0, 0.2)`,
+    },
+    default: {
+      shadowColor: "#000",
+      shadowOffset: { width: s(4), height: s(4) }, // "Off-aligned" look
+      shadowOpacity: 0.2,
+      shadowRadius: 0, // Hard shadows for sticker look
+      elevation: 4,
+    },
+  }),
+  cardHover: Platform.select({
+    web: {
+      boxShadow: `${s(6)}px ${s(6)}px 0px rgba(0, 0, 0, 0.3)`,
+    },
+    default: {
+      shadowColor: "#000",
+      shadowOffset: { width: s(6), height: s(6) },
+      shadowOpacity: 0.3,
+      shadowRadius: 0,
+      elevation: 8,
+    },
+  }),
+  sticker: Platform.select({
+    web: {
+      boxShadow: `${s(2)}px ${s(2)}px 0px rgba(0, 0, 0, 0.5)`,
+    },
+    default: {
+      shadowColor: "#000",
+      shadowOffset: { width: s(2), height: s(2) },
+      shadowOpacity: 0.5,
+      shadowRadius: 0,
+      elevation: 2,
+    },
+  }),
+  fab: Platform.select({
+    web: {
+      boxShadow: `0px ${s(8)}px ${ms(16)}px rgba(255, 95, 0, 0.4)`,
+    },
+    default: {
+      shadowColor: sunsetOrange,
+      shadowOffset: { width: 0, height: s(8) },
+      shadowOpacity: 0.4,
+      shadowRadius: ms(16),
+      elevation: 12,
+    },
+  }),
+  subtle: Platform.select({
+    web: {
+      boxShadow: `0px ${s(2)}px ${ms(4)}px rgba(0, 0, 0, 0.1)`,
+    },
+    default: {
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: s(2) },
+      shadowOpacity: 0.1,
+      shadowRadius: ms(4),
+      elevation: 2,
+    },
+  }),
 };
 
 // ============================================
