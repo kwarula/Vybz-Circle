@@ -10,7 +10,19 @@ import EventDetail from '@/pages/EventDetail'
 import Discover from '@/pages/Discover'
 import Profile from '@/pages/Profile'
 import SignIn from '@/pages/auth/SignIn'
+import SignUp from '@/pages/auth/SignUp'
+import InterestSelection from '@/pages/auth/InterestSelection'
 import AuthCallback from '@/pages/auth/Callback'
+import MyTickets from '@/pages/MyTickets'
+import Wallet from '@/pages/Wallet'
+import Settings from '@/pages/Settings'
+import EditProfile from '@/pages/EditProfile'
+import SafetySettings from '@/pages/SafetySettings'
+import Venues from '@/pages/Venues'
+import Notifications from '@/pages/Notifications'
+import Leaderboard from '@/pages/Leaderboard'
+import Achievements from '@/pages/Achievements'
+import AdminDashboard from '@/pages/AdminDashboard'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -45,14 +57,26 @@ export default function App() {
             <Routes>
               {/* Auth Routes (no layout) */}
               <Route path="/auth/signin" element={<SignIn />} />
+              <Route path="/auth/signup" element={<SignUp />} />
+              <Route path="/auth/interests" element={<InterestSelection />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
 
               {/* Main App Routes */}
               <Route path="/" element={<AppLayout><Home /></AppLayout>} />
               <Route path="/events/:id" element={<AppLayout><EventDetail /></AppLayout>} />
               <Route path="/discover" element={<AppLayout><Discover /></AppLayout>} />
+              <Route path="/venues" element={<AppLayout><Venues /></AppLayout>} />
               <Route path="/messages" element={<AppLayout><ComingSoon title="Messages" /></AppLayout>} />
+              <Route path="/notifications" element={<AppLayout><Notifications /></AppLayout>} />
               <Route path="/profile" element={<AppLayout><Profile /></AppLayout>} />
+              <Route path="/tickets" element={<AppLayout><MyTickets /></AppLayout>} />
+              <Route path="/wallet" element={<AppLayout><Wallet /></AppLayout>} />
+              <Route path="/rewards" element={<AppLayout><Achievements /></AppLayout>} />
+              <Route path="/leaderboard" element={<AppLayout><Leaderboard /></AppLayout>} />
+              <Route path="/settings" element={<AppLayout><Settings /></AppLayout>} />
+              <Route path="/settings/edit-profile" element={<AppLayout><EditProfile /></AppLayout>} />
+              <Route path="/settings/safety" element={<AppLayout><SafetySettings /></AppLayout>} />
+              <Route path="/admin" element={<AppLayout><AdminDashboard /></AppLayout>} />
 
               {/* Fallback */}
               <Route path="*" element={<Navigate to="/" replace />} />

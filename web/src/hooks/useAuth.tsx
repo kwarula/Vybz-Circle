@@ -8,6 +8,8 @@ interface AuthContextType {
     session: Session | null
     loading: boolean
     signInWithGoogle: () => Promise<void>
+    signInWithEmail: (email: string, password: string) => Promise<void>
+    signUpWithEmail: (email: string, password: string) => Promise<void>
     signInWithPhone: (phone: string) => Promise<void>
     verifyOtp: (phone: string, token: string) => Promise<void>
     signOut: () => Promise<void>
@@ -47,6 +49,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (error) throw error
     }
 
+    const signInWithEmail = async (email: string, password: string) => {
+        const { error } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+        })
+        if (error) throw error
+    }
+
+    const signUpWithEmail = async (email: string, password: string) => {
+        const { error } = await supabase.auth.signUp({
+            email,
+            password,
+        })
+        if (error) throw error
+    }
+
     const signInWithPhone = async (phone: string) => {
         const { error } = await supabase.auth.signInWithOtp({
             phone,
@@ -69,7 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     return (
-        <AuthContext.Provider value={{ user, session, loading, signInWithGoogle, signInWithPhone, verifyOtp, signOut }}>
+        <AuthContext.Provider value={{ user, session, loading, signInWithGoogle, signInWithEmail, signUpWithEmail, signInWithPhone, verifyOtp, signOut }}>
             {children}
         </AuthContext.Provider>
     )

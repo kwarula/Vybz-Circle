@@ -5,10 +5,12 @@ import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/Button'
 
 export default function SignIn() {
-    const { signInWithGoogle, signInWithPhone, verifyOtp } = useAuth()
+    const { signInWithGoogle, signInWithEmail, signInWithPhone, verifyOtp } = useAuth()
+    const [email, setEmail] = useState('')
+    const [password, setPassword] = useState('')
     const [phone, setPhone] = useState('')
     const [otp, setOtp] = useState('')
-    const [step, setStep] = useState<'choose' | 'phone' | 'otp'>('choose')
+    const [step, setStep] = useState<'choose' | 'email' | 'phone' | 'otp'>('choose')
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
 
@@ -19,6 +21,20 @@ export default function SignIn() {
             await signInWithGoogle()
         } catch (e) {
             setError('Failed to sign in with Google')
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const handleEmailSubmit = async (e: React.FormEvent) => {
+        e.preventDefault()
+        try {
+            setLoading(true)
+            setError('')
+            await signInWithEmail(email, password)
+            // Redirect will happen automatically via auth state change
+        } catch (e) {
+            setError('Invalid email or password. Please try again.')
         } finally {
             setLoading(false)
         }
@@ -97,6 +113,15 @@ export default function SignIn() {
                                 Continue with Google
                             </button>
 
+                            {/* Email Sign In */}
+                            <button
+                                onClick={() => setStep('email')}
+                                className="w-full flex items-center justify-center gap-3 p-4 rounded-xl bg-surface text-white font-semibold hover:bg-surface-secondary transition-colors border border-surface-tertiary"
+                            >
+                                <Mail className="w-5 h-5" />
+                                Continue with Email
+                            </button>
+
                             {/* Phone Sign In */}
                             <button
                                 onClick={() => setStep('phone')}
@@ -106,10 +131,62 @@ export default function SignIn() {
                                 Continue with Phone
                             </button>
 
+                            <div className="relative my-6">
+                                <div className="absolute inset-0 flex items-center">
+                                    <div className="w-full border-t border-surface-tertiary"></div>
+                                </div>
+                                <div className="relative flex justify-center text-xs">
+                                    <span className="px-2 bg-midnight-teal text-text-muted">Don't have an account?</span>
+                                </div>
+                            </div>
+
+                            <Link to="/auth/signup">
+                                <Button variant="outline" className="w-full" size="lg">
+                                    Sign Up
+                                </Button>
+                            </Link>
+
                             <p className="text-center text-tiny text-text-muted mt-6">
                                 By continuing, you agree to our Terms of Service and Privacy Policy
                             </p>
                         </div>
+                    )}
+
+                    {step === 'email' && (
+                        <form onSubmit={handleEmailSubmit} className="space-y-4">
+                            <div>
+                                <label className="block text-small text-text-secondary mb-2">Email</label>
+                                <input
+                                    type="email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    placeholder="you@example.com"
+                                    className="w-full px-4 py-3 rounded-xl bg-surface border border-surface-tertiary text-white placeholder:text-text-muted focus:border-sunset-orange focus:outline-none transition-colors"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-small text-text-secondary mb-2">Password</label>
+                                <input
+                                    type="password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    placeholder="••••••••"
+                                    className="w-full px-4 py-3 rounded-xl bg-surface border border-surface-tertiary text-white placeholder:text-text-muted focus:border-sunset-orange focus:outline-none transition-colors"
+                                    required
+                                />
+                            </div>
+                            <Button type="submit" className="w-full" size="lg" disabled={loading || !email || !password}>
+                                {loading ? 'Signing in...' : 'Sign In'}
+                            </Button>
+                            <button
+                                type="button"
+                                onClick={() => setStep('choose')}
+                                className="w-full text-center text-text-secondary hover:text-white transition-colors"
+                            >
+                                Back to options
+                            </button>
+                        </form>
                     )}
 
                     {step === 'phone' && (
