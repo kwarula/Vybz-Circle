@@ -7,7 +7,7 @@ import {
     Switch,
     Platform,
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeInDown } from "react-native-reanimated";
@@ -18,6 +18,17 @@ import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import { categories } from "@/data/mockData";
+import type { RootStackParamList } from "@/navigation/RootStackNavigator";
+
+export interface FilterState {
+    date: string;
+    price: string;
+    categories: string[];
+    verifiedOnly: boolean;
+    includeSoldOut: boolean;
+}
+
+type FilterModalRouteProp = RouteProp<RootStackParamList, 'FilterModal'>;
 
 const DATES = ["Today", "Tomorrow", "This Weekend", "Next Week", "Choose Date"];
 const PRICES = ["Any Price", "Free", "Under 1000", "Under 3000", "High End"];
@@ -73,15 +84,19 @@ function FilterChip({ label, isSelected, onPress }: FilterChipProps) {
 
 export default function FilterModal() {
     const navigation = useNavigation();
+    const route = useRoute<FilterModalRouteProp>();
     const { theme, isDark } = useTheme();
     const insets = useSafeAreaInsets();
 
+    const onApplyFilters = route.params?.onApplyFilters;
+    const initialFilters = route.params?.initialFilters;
+
     // Filter States
-    const [selectedDate, setSelectedDate] = useState("This Weekend");
-    const [selectedPrice, setSelectedPrice] = useState("Any Price");
-    const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-    const [showSoldOut, setShowSoldOut] = useState(false);
-    const [verifiedOnly, setVerifiedOnly] = useState(true);
+    const [selectedDate, setSelectedDate] = useState(initialFilters?.date || "This Weekend");
+    const [selectedPrice, setSelectedPrice] = useState(initialFilters?.price || "Any Price");
+    const [selectedCategories, setSelectedCategories] = useState<string[]>(initialFilters?.categories || []);
+    const [showSoldOut, setShowSoldOut] = useState(initialFilters?.includeSoldOut || false);
+    const [verifiedOnly, setVerifiedOnly] = useState(initialFilters?.verifiedOnly ?? true);
 
     const toggleCategory = (category: string) => {
         setSelectedCategories((prev) =>
@@ -102,6 +117,19 @@ export default function FilterModal() {
 
     const handleApply = () => {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+        const filters: FilterState = {
+            date: selectedDate,
+            price: selectedPrice,
+            categories: selectedCategories,
+            verifiedOnly,
+            includeSoldOut: showSoldOut,
+        };
+
+        if (onApplyFilters) {
+            onApplyFilters(filters);
+        }
+
         navigation.goBack();
     };
 

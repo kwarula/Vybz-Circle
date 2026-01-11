@@ -16,6 +16,7 @@ import { Spacing, BorderRadius, Colors, Shadows } from "@/constants/theme";
 import { categories } from "@/data/mockData";
 import { useEvents } from "@/hooks/useEvents";
 import type { RootStackParamList } from "@/navigation/RootStackNavigator";
+import type { FilterState } from "@/screens/FilterModal";
 
 let MapView: any = null;
 let Marker: any = null;
@@ -42,7 +43,21 @@ const NAIROBI_REGION = {
 };
 
 // Explore View (Web/Fallback)
-function ExploreView({ theme, isDark, onEventPress, navigation }: { theme: any; isDark: boolean; onEventPress: (id: string) => void; navigation: NavigationProp }) {
+function ExploreView({
+  theme,
+  isDark,
+  onEventPress,
+  navigation,
+  filters,
+  onApplyFilters
+}: {
+  theme: any;
+  isDark: boolean;
+  onEventPress: (id: string) => void;
+  navigation: NavigationProp;
+  filters: FilterState;
+  onApplyFilters: (filters: FilterState) => void;
+}) {
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const { data: events = [] } = useEvents();
@@ -52,6 +67,30 @@ function ExploreView({ theme, isDark, onEventPress, navigation }: { theme: any; 
     const matchesSearch =
       event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       event.venue.toLowerCase().includes(searchQuery.toLowerCase());
+
+    // Apply FilterModal filters
+    if (filters.categories.length > 0 && !filters.categories.includes("All")) {
+      if (!filters.categories.some((cat: string) => event.category?.toLowerCase() === cat.toLowerCase())) {
+        return false;
+      }
+    }
+
+    if (filters.price !== "Any Price") {
+      const price = event.price || 0;
+      if (filters.price === "Free" && price > 0) return false;
+      if (filters.price === "Under 1000" && price >= 1000) return false;
+      if (filters.price === "Under 3000" && price >= 3000) return false;
+      if (filters.price === "High End" && price < 3000) return false;
+    }
+
+    if (filters.verifiedOnly && !event.verified) {
+      return false;
+    }
+
+    if (!filters.includeSoldOut && event.is_sold_out) {
+      return false;
+    }
+
     return matchesCategory && matchesSearch;
   });
 
@@ -78,9 +117,12 @@ function ExploreView({ theme, isDark, onEventPress, navigation }: { theme: any; 
           <View style={[styles.searchDivider, { backgroundColor: theme.border }]} />
           <Pressable
             style={styles.filterBtn}
-            onPress={() => navigation.navigate('FilterModal')}
+            onPress={() => navigation.navigate('FilterModal', { onApplyFilters, initialFilters: filters })}
           >
             <Feather name="sliders" size={18} color={theme.textSecondary} />
+            {(filters.categories.length > 0 || filters.price !== "Any Price" || !filters.verifiedOnly || filters.includeSoldOut) && (
+              <View style={styles.filterBadge} />
+            )}
           </Pressable>
         </View>
 
@@ -145,8 +187,46 @@ export default function DiscoverScreen() {
   const navigation = useNavigation<NavigationProp>();
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
   const [location] = useState("Nairobi");
+  const [filters, setFilters] = useState<FilterState>({
+    date: "This Weekend",
+    price: "Any Price",
+    categories: [],
+    verifiedOnly: true,
+    includeSoldOut: false,
+  });
 
   const { data: events = [] } = useEvents();
+
+  const handleApplyFilters = (newFilters: FilterState) => {
+    setFilters(newFilters);
+  };
+
+  // Apply filters to events for map view
+  const filteredEvents = events.filter((event: any) => {
+    if (filters.categories.length > 0 && !filters.categories.includes("All")) {
+      if (!filters.categories.some((cat: string) => event.category?.toLowerCase() === cat.toLowerCase())) {
+        return false;
+      }
+    }
+
+    if (filters.price !== "Any Price") {
+      const price = event.price || 0;
+      if (filters.price === "Free" && price > 0) return false;
+      if (filters.price === "Under 1000" && price >= 1000) return false;
+      if (filters.price === "Under 3000" && price >= 3000) return false;
+      if (filters.price === "High End" && price < 3000) return false;
+    }
+
+    if (filters.verifiedOnly && !event.verified) {
+      return false;
+    }
+
+    if (!filters.includeSoldOut && event.is_sold_out) {
+      return false;
+    }
+
+    return true;
+  });
 
   const handleMarkerPress = (eventId: string) => {
     setSelectedEvent(eventId);
@@ -160,7 +240,7 @@ export default function DiscoverScreen() {
     navigation.navigate("TopSpots");
   };
 
-  const selectedEventData = events.find((e: any) => e.id === selectedEvent);
+  const selectedEventData = filteredEvents.find((e: any) => e.id === selectedEvent);
 
   // Use ExploreView if map is unavailable or on web
   if (Platform.OS === "web" || !MapView) {
@@ -176,7 +256,14 @@ export default function DiscoverScreen() {
         ]}
       >
         <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
-        <ExploreView theme={theme} isDark={isDark} onEventPress={handleEventPress} navigation={navigation} />
+        <ExploreView
+          theme={theme}
+          isDark={isDark}
+          onEventPress={handleEventPress}
+          navigation={navigation}
+          filters={filters}
+          onApplyFilters={handleApplyFilters}
+        />
       </View>
     );
   }
@@ -190,7 +277,7 @@ export default function DiscoverScreen() {
         showsUserLocation
         showsMyLocationButton={false}
       >
-        {events.map((event: any) => (
+        {filteredEvents.map((event: any) => (
           <Marker
             key={event.id}
             coordinate={event.coordinates}
@@ -234,9 +321,12 @@ export default function DiscoverScreen() {
           </Pressable>
           <Pressable
             style={[styles.iconButton, { backgroundColor: 'rgba(0,0,0,0.6)' }]}
-            onPress={() => navigation.navigate("FilterModal")}
+            onPress={() => navigation.navigate("FilterModal", { onApplyFilters: handleApplyFilters, initialFilters: filters })}
           >
             <Feather name="sliders" size={20} color="#FFF" />
+            {(filters.categories.length > 0 || filters.price !== "Any Price" || !filters.verifiedOnly || filters.includeSoldOut) && (
+              <View style={styles.filterBadge} />
+            )}
           </Pressable>
         </View>
       </View>
@@ -414,5 +504,14 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
+  },
+  filterBadge: {
+    position: "absolute",
+    top: 2,
+    right: 2,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.light.primary,
   },
 });

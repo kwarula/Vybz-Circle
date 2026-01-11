@@ -26,6 +26,7 @@ import AchievementsScreen from "@/screens/gamification/AchievementsScreen";
 import AdminDashboardScreen from "@/screens/AdminDashboardScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { UberLocation } from "@/lib/uber";
+import type { FilterState } from "@/screens/FilterModal";
 
 export type RootStackParamList = {
   Main: undefined;
@@ -41,7 +42,7 @@ export type RootStackParamList = {
   LocationShare: undefined;
   StatusUpdate: undefined;
   RideRequest: { pickup?: UberLocation; dropoff: UberLocation; venueName?: string };
-  FilterModal: undefined;
+  FilterModal: { onApplyFilters?: (filters: FilterState) => void; initialFilters?: FilterState };
   InterestSelection: undefined;
   CreateCrew: undefined;
   Leaderboard: undefined;

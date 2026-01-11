@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Search, MapPin, Star } from 'lucide-react'
+import { Search, MapPin, Star, Filter } from 'lucide-react'
+import FilterModal, { FilterState } from '@/components/FilterModal'
 
 interface Venue {
     id: string
@@ -66,19 +67,51 @@ const MOCK_VENUES: Venue[] = [
 export default function Venues() {
     const [searchQuery, setSearchQuery] = useState('')
     const [selectedCategory, setSelectedCategory] = useState('All')
+    const [isFilterModalOpen, setIsFilterModalOpen] = useState(false)
+    const [filters, setFilters] = useState<FilterState>({
+        date: 'This Weekend',
+        price: 'Any Price',
+        categories: [],
+        verifiedOnly: true,
+        includeSoldOut: false,
+    })
+
+    const handleApplyFilters = (newFilters: FilterState) => {
+        setFilters(newFilters)
+    }
 
     const filteredVenues = MOCK_VENUES.filter(venue => {
         const matchesSearch = venue.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                             venue.address.toLowerCase().includes(searchQuery.toLowerCase())
         const matchesCategory = selectedCategory === 'All' || venue.category === selectedCategory
+
+        // Apply additional filters from FilterModal
+        // For venues, we can filter by rating as a proxy for "verified"
+        if (filters.verifiedOnly && venue.rating < 4.0) {
+            return false
+        }
+
         return matchesSearch && matchesCategory
     })
 
     return (
         <div className="py-8">
             <div className="mb-8">
-                <h1 className="text-h1 text-white mb-2">Top Spots</h1>
-                <p className="text-text-secondary">Discover the best venues in Nairobi</p>
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h1 className="text-h1 text-white mb-2">Top Spots</h1>
+                        <p className="text-text-secondary">Discover the best venues in Nairobi</p>
+                    </div>
+                    <button
+                        onClick={() => setIsFilterModalOpen(true)}
+                        className="p-3 rounded-xl bg-surface hover:bg-surface-secondary transition-colors relative"
+                    >
+                        <Filter className="w-5 h-5 text-text-secondary" />
+                        {(filters.categories.length > 0 || filters.price !== 'Any Price' || !filters.verifiedOnly || filters.includeSoldOut) && (
+                            <span className="absolute top-1 right-1 w-2 h-2 bg-sunset-orange rounded-full" />
+                        )}
+                    </button>
+                </div>
             </div>
 
             {/* Search */}
@@ -158,6 +191,14 @@ export default function Venues() {
                     ))}
                 </div>
             )}
+
+            {/* Filter Modal */}
+            <FilterModal
+                isOpen={isFilterModalOpen}
+                onClose={() => setIsFilterModalOpen(false)}
+                onApply={handleApplyFilters}
+                initialFilters={filters}
+            />
         </div>
     )
 }
