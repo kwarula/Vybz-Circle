@@ -8,12 +8,14 @@ import { PlatformId, PLATFORM_CONFIGS } from "@shared/scraperSchema";
 import spotifyRoutes from "./routes/spotify";
 import userRoutes from "./routes/user";
 import recommendationRoutes from "./routes/recommendations";
+import advancedRoutes from "./routes/advanced";
 import { verifyAuth, requireAdmin, AuthenticatedRequest } from "./middleware/auth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/spotify", spotifyRoutes);
   app.use("/api/users", userRoutes);
   app.use("/api/recommendations", recommendationRoutes);
+  app.use("/api/advanced", advancedRoutes);
 
   // Events - with optional source filtering
   app.get("/api/events", async (req, res) => {

@@ -266,6 +266,11 @@ function setupErrorHandler(app: express.Application) {
 
   setupErrorHandler(app);
 
+  // Initialize WebSocket server for real-time recommendations
+  const { RealtimeRecommendations } = await import("./websocket");
+  const wsServer = new RealtimeRecommendations(server);
+  log("✅ WebSocket server initialized for real-time recommendations");
+
   const port = parseInt(process.env.PORT || "5000", 10);
   server.listen(port, "0.0.0.0", () => {
     log(`express server serving on port ${port}`);
