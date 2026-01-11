@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { MapPin, Calendar, Star, Heart } from 'lucide-react'
 import { cn, formatDateTime } from '@/lib/utils'
 import type { Event } from '@/lib/api'
+import { useTrackEventClick, useTrackEventSave } from '@/hooks/useRecommendations'
 
 interface EventCardProps {
     event: Event
@@ -14,6 +15,9 @@ export function EventCard({ event, variant = 'default', className }: EventCardPr
     const [imageError, setImageError] = useState(false)
     const [imageLoaded, setImageLoaded] = useState(false)
     const [isLiked, setIsLiked] = useState(false)
+
+    const trackClick = useTrackEventClick()
+    const trackSave = useTrackEventSave()
 
     const showFallback = !event.image_url || imageError
     const isCompact = variant === 'compact'
@@ -32,15 +36,25 @@ export function EventCard({ event, variant = 'default', className }: EventCardPr
         return gradients[category] || gradients.default
     }
 
+    const handleCardClick = () => {
+        // Track click when user clicks on card
+        trackClick(event.id, { variant, from: 'event_card' })
+    }
+
     const handleLikeClick = (e: React.MouseEvent) => {
         e.preventDefault()
         e.stopPropagation()
-        setIsLiked(!isLiked)
+        const newLikedState = !isLiked
+        setIsLiked(newLikedState)
+
+        // Track save/wishlist action
+        trackSave(event.id, newLikedState)
     }
 
     return (
         <Link
             to={`/events/${event.id}`}
+            onClick={handleCardClick}
             className={cn(
                 'group block',
                 className

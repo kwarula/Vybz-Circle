@@ -2,9 +2,10 @@ import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { useEvents } from '@/hooks/useEvents'
 import { useAuth } from '@/hooks/useAuth'
+import { usePersonalizedRecommendations, useTrendingEvents } from '@/hooks/useRecommendations'
 import { EventCard } from '@/components/EventCard'
 import { Button } from '@/components/Button'
-import { Loader2, Sparkles, ChevronRight, ArrowRight } from 'lucide-react'
+import { Loader2, Sparkles, ChevronRight, ArrowRight, TrendingUp, Zap } from 'lucide-react'
 
 const MOODS = [
     { id: 'All', label: 'All Vybz', emoji: '✨' },
@@ -18,6 +19,8 @@ const MOODS = [
 export default function Home() {
     const [selectedMood, setSelectedMood] = useState('All')
     const { data: events = [], isLoading, error } = useEvents()
+    const { data: personalizedEvents = [], isLoading: loadingPersonalized } = usePersonalizedRecommendations(12)
+    const { data: trendingEvents = [], isLoading: loadingTrending } = useTrendingEvents(8)
     const { user } = useAuth()
 
     const userName = user?.user_metadata?.display_name || user?.email?.split('@')[0] || 'Friend'
@@ -59,6 +62,83 @@ export default function Home() {
                     ))}
                 </div>
             </section>
+
+            {/* Personalized For You Section - Only shown to logged in users */}
+            {user && personalizedEvents.length > 0 && (
+                <section className="mb-10">
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2">
+                            <Zap className="w-5 h-5 text-sunset-orange" />
+                            <h2 className="text-h1 text-white font-semibold">For You</h2>
+                            <span className="px-2 py-0.5 rounded-full bg-sunset-orange/10 text-sunset-orange text-tiny font-semibold">
+                                Personalized
+                            </span>
+                        </div>
+                        <button className="flex items-center gap-1 text-small font-medium text-text-secondary hover:text-white transition-colors">
+                            Show all <ChevronRight className="w-4 h-4" />
+                        </button>
+                    </div>
+
+                    {loadingPersonalized ? (
+                        <div className="flex items-center justify-center py-12">
+                            <Loader2 className="w-6 h-6 text-sunset-orange animate-spin" />
+                        </div>
+                    ) : (
+                        <>
+                            {/* Horizontal scroll container */}
+                            <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide snap-x snap-mandatory -mx-6 px-6 sm:-mx-10 sm:px-10 lg:-mx-20 lg:px-20">
+                                {personalizedEvents.slice(0, 8).map((event) => (
+                                    <div key={event.id} className="shrink-0 w-[220px] snap-start">
+                                        <EventCard event={event} variant="compact" />
+                                    </div>
+                                ))}
+                            </div>
+                            <p className="text-tiny text-text-muted mt-3 text-center">
+                                Based on your interests and activity
+                            </p>
+                        </>
+                    )}
+                </section>
+            )}
+
+            {/* Trending This Week Section */}
+            {trendingEvents.length > 0 && (
+                <section className="mb-10">
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2">
+                            <TrendingUp className="w-5 h-5 text-bright-turquoise" />
+                            <h2 className="text-h1 text-white font-semibold">Trending This Week</h2>
+                        </div>
+                        <button className="flex items-center gap-1 text-small font-medium text-text-secondary hover:text-white transition-colors">
+                            Show all <ChevronRight className="w-4 h-4" />
+                        </button>
+                    </div>
+
+                    {loadingTrending ? (
+                        <div className="flex items-center justify-center py-12">
+                            <Loader2 className="w-6 h-6 text-bright-turquoise animate-spin" />
+                        </div>
+                    ) : (
+                        <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide snap-x snap-mandatory -mx-6 px-6 sm:-mx-10 sm:px-10 lg:-mx-20 lg:px-20">
+                            {trendingEvents.map((event) => (
+                                <div key={event.id} className="shrink-0 w-[220px] snap-start relative">
+                                    <EventCard event={event} variant="compact" />
+                                    {event.trending_stats && (
+                                        <div className="absolute top-2 right-2 px-2 py-1 rounded-full bg-bright-turquoise/90 backdrop-blur-sm">
+                                            <div className="flex items-center gap-1">
+                                                <TrendingUp className="w-3 h-3 text-white" />
+                                                <span className="text-tiny font-bold text-white">
+                                                    {event.trending_stats.engagement_score}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </section>
+            )}
 
             {/* Featured Section - Horizontal scroll like Airbnb */}
             {featuredEvents.length > 0 && (

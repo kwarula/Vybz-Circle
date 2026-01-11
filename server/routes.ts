@@ -7,11 +7,13 @@ import { runScraper, getScraperStatus, isFirecrawlConfigured } from "./scraper";
 import { PlatformId, PLATFORM_CONFIGS } from "@shared/scraperSchema";
 import spotifyRoutes from "./routes/spotify";
 import userRoutes from "./routes/user";
+import recommendationRoutes from "./routes/recommendations";
 import { verifyAuth, requireAdmin, AuthenticatedRequest } from "./middleware/auth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/spotify", spotifyRoutes);
   app.use("/api/users", userRoutes);
+  app.use("/api/recommendations", recommendationRoutes);
 
   // Events - with optional source filtering
   app.get("/api/events", async (req, res) => {
