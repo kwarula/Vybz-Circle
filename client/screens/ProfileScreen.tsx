@@ -13,9 +13,20 @@ import { EventCard } from "@/components/EventCard";
 import { Avatar } from "@/components/Avatar";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors, Shadows } from "@/constants/theme";
+import { s, ms, vs, fs } from "@/utils/responsive";
 import { currentUser } from "@/data/mockData";
 import { useEvents } from "@/hooks/useEvents";
 import type { RootStackParamList } from "@/navigation/RootStackNavigator";
+import * as WebBrowser from 'expo-web-browser';
+import { makeRedirectUri, useAuthRequest, ResponseType } from 'expo-auth-session';
+
+WebBrowser.maybeCompleteAuthSession();
+
+// Spotify Configuration
+const discovery = {
+  authorizationEndpoint: 'https://accounts.spotify.com/authorize',
+  tokenEndpoint: 'https://accounts.spotify.com/api/token',
+};
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -56,9 +67,62 @@ export default function ProfileScreen() {
     { label: "Rank", value: "Top 5%" },
   ];
 
+  const [request, response, promptAsync] = useAuthRequest(
+    {
+      responseType: ResponseType.Code,
+      clientId: process.env.EXPO_PUBLIC_SPOTIFY_CLIENT_ID || '',
+      scopes: ['user-read-email', 'user-top-read'],
+      usePKCE: false,
+      redirectUri: makeRedirectUri({
+        scheme: 'vybz-circle',
+        path: 'spotify-auth'
+      }),
+    },
+    discovery
+  );
+
+  const [spotifyConnected, setSpotifyConnected] = useState(false);
+
+  React.useEffect(() => {
+    if (response?.type === 'success') {
+      const { code } = response.params;
+      handleSpotifyConnect(code);
+    }
+  }, [response]);
+
+  const handleSpotifyConnect = async (code: string) => {
+    try {
+      // In a real app, use the logged-in user's ID
+      const userId = currentUser.id;
+      const redirectUri = makeRedirectUri({
+        scheme: 'vybz-circle',
+        path: 'spotify-auth'
+      });
+
+      const res = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/spotify/connect`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, redirectUri, userId }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setSpotifyConnected(true);
+        Alert.alert("Success", "Spotify connected! Your feed will now be personalized.");
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } else {
+        Alert.alert("Error", "Failed to connect Spotify.");
+      }
+    } catch (error) {
+      console.error(error);
+      Alert.alert("Error", "An unexpected error occurred.");
+    }
+  };
+
   const menuItems = [
     { icon: "credit-card", label: "Wallet", value: "KES 2,500", screen: null },
     { icon: "tag", label: "My Tickets", value: "3", screen: "MyTickets" },
+    { icon: "music", label: "Connect Spotify", value: spotifyConnected ? "Connected" : "Connect", action: () => promptAsync(), screen: null, color: "#1DB954" }, // Added Spotify Item
     { icon: "award", label: "Achievements", value: "New", screen: null },
     { icon: "shield", label: "Admin Dashboard", value: null, screen: "AdminDashboard" },
   ];
@@ -69,12 +133,14 @@ export default function ProfileScreen() {
     setRefreshing(false);
   }, [refetch]);
 
-  const handleMenuPress = (label: string, screen: string | null) => {
+  const handleMenuPress = (item: any) => {
     Haptics.selectionAsync();
-    if (screen) {
-      navigation.navigate(screen as any);
+    if (item.action) {
+      item.action();
+    } else if (item.screen) {
+      navigation.navigate(item.screen as any);
     } else {
-      Alert.alert(label, "This feature is coming soon! 🚀");
+      Alert.alert(item.label, "This feature is coming soon! 🚀");
     }
   };
 
@@ -93,7 +159,7 @@ export default function ProfileScreen() {
           <ThemedText type="h2">Profile</ThemedText>
           <Pressable
             style={styles.settingsButton}
-            onPress={() => handleMenuPress("Settings", null)}
+            onPress={() => navigation.navigate("Settings")}
           >
             <Feather name="settings" size={22} color={theme.text} />
           </Pressable>
@@ -150,20 +216,20 @@ export default function ProfileScreen() {
             {menuItems.map((item, index) => (
               <Pressable
                 key={item.label}
-                onPress={() => handleMenuPress(item.label, item.screen)}
+                onPress={() => handleMenuPress(item)}
                 style={({ pressed }) => [
                   styles.menuCard,
                   { backgroundColor: theme.backgroundDefault },
                   pressed && { opacity: 0.7, transform: [{ scale: 0.98 }] }
                 ]}
               >
-                <View style={[styles.menuIconCircle, { backgroundColor: `${Colors.light.primary}15` }]}>
-                  <Feather name={item.icon as any} size={22} color={Colors.light.primary} />
+                <View style={[styles.menuIconCircle, { backgroundColor: item.color ? `${item.color}15` : `${Colors.light.primary}15` }]}>
+                  <Feather name={item.icon as any} size={22} color={item.color || Colors.light.primary} />
                 </View>
                 <View style={styles.menuCardContent}>
                   <ThemedText type="body" style={styles.menuLabel}>{item.label}</ThemedText>
                   {item.value && (
-                    <ThemedText type="h4" style={{ color: Colors.light.primary, marginTop: 2 }}>
+                    <ThemedText type="h4" style={{ color: item.color || Colors.light.primary, marginTop: 2 }}>
                       {item.value}
                     </ThemedText>
                   )}
@@ -250,8 +316,8 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.md,
   },
   settingsButton: {
-    width: 40,
-    height: 40,
+    width: ms(40),
+    height: ms(40),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -266,7 +332,7 @@ const styles = StyleSheet.create({
   },
   avatarRing: {
     padding: 3,
-    borderRadius: 54,
+    borderRadius: ms(54),
     borderWidth: 2.5,
   },
   editButton: {
@@ -274,9 +340,9 @@ const styles = StyleSheet.create({
     bottom: 2,
     right: 2,
     backgroundColor: Colors.light.primary,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: ms(28),
+    height: ms(28),
+    borderRadius: ms(14),
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2.5,
@@ -301,7 +367,7 @@ const styles = StyleSheet.create({
   statCard: {
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: 90,
+    minWidth: s(90),
     gap: 2,
   },
   content: {
@@ -321,9 +387,9 @@ const styles = StyleSheet.create({
     minHeight: 72,
   },
   menuIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+    width: ms(44),
+    height: ms(44),
+    borderRadius: ms(12),
     alignItems: 'center',
     justifyContent: 'center',
   },

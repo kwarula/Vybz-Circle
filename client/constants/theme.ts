@@ -1,51 +1,37 @@
 import { Platform } from "react-native";
+import { ms, s, fs } from "@/utils/responsive";
 
 // ============================================
-// BRAND COLORS - ONE HERO COLOR ONLY
+// NAIROBI POP PALETTE - HIGH ENERGY
 // ============================================
-const vybzViolet = "#8B5CF6";        // Primary brand color
-const vybzVioletLight = "#A78BFA";   // Lighter variant for accents
-const vybzVioletMuted = "rgba(139, 92, 246, 0.15)"; // Subtle backgrounds
+const sunsetOrange = "#FF5F00";      // Primary Accent
+const electricBerry = "#FF007A";     // Secondary Accent
+const brightTurquoise = "#00F0FF";   // Vibrant Accent
+const midnightTeal = "#0A1A1A";      // Deep Background
+const clay = "#F4F1EA";               // Warm Light Background
 
-// ============================================
-// NEUTRAL PALETTE - MONOCHROME UI
-// ============================================
-const trueBlack = "#000000";
-const richBlack = "#0A0A0A";
-const charcoal = "#121212";
-const darkGray = "#1A1A1A";
-const mediumGray = "#2A2A2A";
-const lightGray = "#3A3A3A";
-
-// Text colors for dark theme (high contrast)
 const textPrimary = "#FFFFFF";
-const textSecondary = "#B3B3B3";    // Brighter than before for accessibility
+const textSecondary = "#B3B3B3";
 const textMuted = "#737373";
-
-// Light theme
-const snow = "#FFFFFF";
-const offWhite = "#FAFAFA";
-const lightBg = "#F5F5F5";
 
 export const Colors = {
   light: {
-    text: "#0A0A0A",
+    text: "#0A1A1A",
     textSecondary: "#525252",
     textMuted: "#A3A3A3",
     buttonText: "#FFFFFF",
     tabIconDefault: "#A3A3A3",
-    tabIconSelected: vybzViolet,
-    link: vybzViolet,
-    primary: vybzViolet,
-    primaryLight: vybzVioletLight,
-    primaryMuted: vybzVioletMuted,
-    // NO SECONDARY COLOR - monochrome UI
-    backgroundRoot: offWhite,
-    backgroundDefault: snow,
-    backgroundSecondary: lightBg,
-    backgroundTertiary: "#E5E5E5",
-    border: "#E5E5E5",
-    borderLight: "#F0F0F0",
+    tabIconSelected: sunsetOrange,
+    link: sunsetOrange,
+    primary: sunsetOrange,
+    primaryLight: "#FF8A4D",
+    primaryMuted: "rgba(255, 95, 0, 0.15)",
+    backgroundRoot: clay,
+    backgroundDefault: "#FFFFFF",
+    backgroundSecondary: "#EAE7E0",
+    backgroundTertiary: "#DEDBCF",
+    border: "#DEDBCF",
+    borderLight: "#F0EFEB",
     success: "#22C55E",
     warning: "#EAB308",
     error: "#EF4444",
@@ -63,18 +49,17 @@ export const Colors = {
     textMuted: textMuted,
     buttonText: "#FFFFFF",
     tabIconDefault: textMuted,
-    tabIconSelected: vybzViolet,
-    link: vybzVioletLight,
-    primary: vybzViolet,
-    primaryLight: vybzVioletLight,
-    primaryMuted: vybzVioletMuted,
-    // TRUE BLACK BACKGROUNDS
-    backgroundRoot: trueBlack,
-    backgroundDefault: richBlack,
-    backgroundSecondary: charcoal,
-    backgroundTertiary: darkGray,
-    border: darkGray,
-    borderLight: mediumGray,
+    tabIconSelected: sunsetOrange,
+    link: brightTurquoise,
+    primary: sunsetOrange,
+    primaryLight: "#FF8A4D",
+    primaryMuted: "rgba(255, 95, 0, 0.15)",
+    backgroundRoot: midnightTeal,
+    backgroundDefault: "#122525",
+    backgroundSecondary: "#1A2E2E",
+    backgroundTertiary: "#233939",
+    border: "#1A2E2E",
+    borderLight: "#233939",
     success: "#22C55E",
     warning: "#EAB308",
     error: "#EF4444",
@@ -83,98 +68,100 @@ export const Colors = {
     overlay: "rgba(0, 0, 0, 0.85)",
     going: "#4ADE80",
     goingBg: "rgba(34, 197, 94, 0.15)",
-    glass: "rgba(10, 10, 10, 0.8)",
+    glass: "rgba(10, 26, 26, 0.8)",
     glassBorder: "rgba(255, 255, 255, 0.08)",
+    accentSecondary: electricBerry,
+    accentTertiary: brightTurquoise,
   },
 };
 
 // ============================================
-// SPACING - INCREASED FOR BREATHING ROOM
+// SPACING - RESPONSIVE SCALING
 // ============================================
 export const Spacing = {
-  xs: 4,
-  sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 24,           // Increased from 20
-  "2xl": 32,        // Increased from 24
-  "3xl": 40,        // Increased from 32
-  "4xl": 48,
-  "5xl": 64,
-  section: 48,      // NEW: Consistent vertical rhythm between sections
-  inputHeight: 52,  // Slightly taller
-  buttonHeight: 56,
+  xs: ms(4),
+  sm: ms(8),
+  md: ms(12),
+  lg: ms(16),
+  xl: ms(24),
+  "2xl": ms(32),
+  "3xl": ms(40),
+  "4xl": ms(48),
+  "5xl": ms(64),
+  section: ms(48),
+  inputHeight: ms(52, 0.2),
+  buttonHeight: ms(56, 0.2),
 };
 
 export const BorderRadius = {
-  xs: 6,
-  sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 20,
-  "2xl": 24,
-  "3xl": 32,
+  xs: ms(4),
+  sm: ms(8),
+  md: ms(12),
+  lg: ms(16),
+  xl: ms(24),
+  "2xl": ms(32),
+  "3xl": ms(40),
   full: 9999,
 };
 
 // ============================================
-// TYPOGRAPHY - BOLDER HIERARCHY
+// TYPOGRAPHY - RESPONSIVE FONT SCALING
 // ============================================
 export const Typography = {
   hero: {
-    fontSize: 36,           // Increased from 32
-    fontWeight: "800" as const,
-    letterSpacing: -1.5,
-    lineHeight: 42,
+    fontSize: fs(42),
+    fontWeight: "900" as const,
+    letterSpacing: -2,
+    lineHeight: fs(48),
   },
   h1: {
-    fontSize: 32,           // Increased from 28
-    fontWeight: "700" as const,
-    letterSpacing: -1,
-    lineHeight: 38,
+    fontSize: fs(34),
+    fontWeight: "800" as const,
+    letterSpacing: -1.5,
+    lineHeight: fs(40),
   },
   h2: {
-    fontSize: 26,           // Increased from 24
+    fontSize: fs(28),
     fontWeight: "700" as const,
-    letterSpacing: -0.5,
-    lineHeight: 32,
+    letterSpacing: -1,
+    lineHeight: fs(34),
   },
   h3: {
-    fontSize: 22,           // Increased from 20 - SECTION HEADERS
-    fontWeight: "600" as const,
-    letterSpacing: -0.3,
-    lineHeight: 28,
+    fontSize: fs(22),
+    fontWeight: "700" as const,
+    letterSpacing: -0.5,
+    lineHeight: fs(28),
   },
   h4: {
-    fontSize: 18,
+    fontSize: fs(18),
     fontWeight: "600" as const,
     letterSpacing: -0.2,
-    lineHeight: 24,
+    lineHeight: fs(24),
   },
   body: {
-    fontSize: 16,
-    fontWeight: "400" as const,
-    lineHeight: 24,
+    fontSize: fs(16),
+    fontWeight: "500" as const,
+    lineHeight: fs(24),
   },
   small: {
-    fontSize: 14,
-    fontWeight: "500" as const,
-    lineHeight: 20,
+    fontSize: fs(14),
+    fontWeight: "600" as const,
+    lineHeight: fs(20),
   },
   tiny: {
-    fontSize: 12,
-    fontWeight: "600" as const,
-    lineHeight: 16,
+    fontSize: fs(12),
+    fontWeight: "700" as const,
+    lineHeight: fs(16),
   },
   caption: {
-    fontSize: 11,
-    fontWeight: "500" as const,
-    letterSpacing: 0.5,
+    fontSize: fs(11),
+    fontWeight: "800" as const,
+    letterSpacing: 1,
     textTransform: "uppercase" as const,
   },
   link: {
-    fontSize: 14,
-    fontWeight: "600" as const,
+    fontSize: fs(14),
+    fontWeight: "700" as const,
   },
 };
 
@@ -200,60 +187,59 @@ export const Fonts = Platform.select({
 });
 
 // ============================================
-// SHADOWS - SUBTLE ON TRUE BLACK
+// SHADOWS - TACTILE & BOLD
 // ============================================
 export const Shadows = {
   card: {
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
+    shadowOffset: { width: s(4), height: s(4) }, // "Off-aligned" look
+    shadowOpacity: 0.2,
+    shadowRadius: 0, // Hard shadows for sticker look
     elevation: 4,
   },
   cardHover: {
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.25,
-    shadowRadius: 24,
+    shadowOffset: { width: s(6), height: s(6) },
+    shadowOpacity: 0.3,
+    shadowRadius: 0,
     elevation: 8,
   },
+  sticker: {
+    shadowColor: "#000",
+    shadowOffset: { width: s(2), height: s(2) },
+    shadowOpacity: 0.5,
+    shadowRadius: 0,
+    elevation: 2,
+  },
   fab: {
-    shadowColor: vybzViolet,
-    shadowOffset: { width: 0, height: 8 },
+    shadowColor: sunsetOrange,
+    shadowOffset: { width: 0, height: s(8) },
     shadowOpacity: 0.4,
-    shadowRadius: 16,
+    shadowRadius: ms(16),
     elevation: 12,
   },
   subtle: {
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: s(2) },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowRadius: ms(4),
     elevation: 2,
-  },
-  glow: {
-    shadowColor: vybzViolet,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
-    elevation: 0,
   },
 };
 
 // ============================================
-// GRADIENTS - STRONGER OVERLAYS
+// GRADIENTS - VIBRANT OVERLAYS
 // ============================================
 export const Gradients = {
-  // Single color gradient (no more blue!)
-  primary: [vybzViolet, vybzVioletLight] as const,
-  primarySolid: [vybzViolet, vybzViolet] as const,
+  primary: [sunsetOrange, "#FF8A4D"] as const,
+  party: [sunsetOrange, electricBerry, brightTurquoise] as const,
+  sticker: ["rgba(255,255,255,0.2)", "rgba(255,255,255,0.05)"] as const,
 
-  // Card overlays - MUCH darker for text readability
+  // Card overlays - Nairobi Pop Style
   cardOverlay: [
     "transparent",
-    "rgba(0,0,0,0.2)",
-    "rgba(0,0,0,0.6)",
-    "rgba(0,0,0,0.95)",
+    "rgba(10, 26, 26, 0.4)",
+    "rgba(10, 26, 26, 0.95)",
   ] as const,
 
   darkOverlay: [
@@ -270,7 +256,7 @@ export const Gradients = {
 
   // Premium subtle glow
   premiumGlow: [
-    "rgba(139, 92, 246, 0.2)",
-    "rgba(139, 92, 246, 0.05)",
+    "rgba(255, 95, 0, 0.2)",
+    "rgba(255, 95, 0, 0.05)",
   ] as const,
 };

@@ -1,5 +1,5 @@
-
 import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/query-client";
 
 // Adapter to transform Backend Event to UI Event
 const adaptEvent = (beEvent: any): any => {
@@ -42,15 +42,9 @@ const adaptEvent = (beEvent: any): any => {
 };
 
 const fetchEvents = async () => {
-    const domain = process.env.EXPO_PUBLIC_DOMAIN || 'http://localhost:5000';
-    console.log('Fetching events from:', `${domain}/api/events`);
+    console.log('Fetching events via apiRequest');
 
-    const res = await fetch(`${domain}/api/events`);
-    if (!res.ok) {
-        console.error('Failed to fetch events:', res.status, res.statusText);
-        throw new Error("Failed to fetch events");
-    }
-
+    const res = await apiRequest('GET', 'api/events');
     const data = await res.json();
     console.log('Fetched events count:', data.length);
 

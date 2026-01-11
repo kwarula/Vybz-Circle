@@ -5,8 +5,14 @@ import { insertEventSchema, insertTicketSchema } from "@shared/schema";
 import { createClient } from "@supabase/supabase-js";
 import { runScraper, getScraperStatus, isFirecrawlConfigured } from "./scraper";
 import { PlatformId, PLATFORM_CONFIGS } from "@shared/scraperSchema";
+import spotifyRoutes from "./routes/spotify";
+import userRoutes from "./routes/user";
+import { verifyAuth, requireAdmin, AuthenticatedRequest } from "./middleware/auth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  app.use("/api/spotify", spotifyRoutes);
+  app.use("/api/users", userRoutes);
+
   // Events - with optional source filtering
   app.get("/api/events", async (req, res) => {
     try {
@@ -49,7 +55,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(ticket);
   });
 
-  app.get("/api/users/:id/tickets", async (req, res) => {
+  app.get("/api/users/:id/tickets", verifyAuth, async (req: AuthenticatedRequest, res) => {
+    // Only allow users to see their own tickets
+    if (req.user?.id !== req.params.id && req.user?.role !== 'admin') {
+      return res.status(403).json({ error: "Forbidden", message: "You can only view your own tickets" });
+    }
     const tickets = await storage.getUserTickets(req.params.id);
     res.json(tickets);
   });
@@ -59,7 +69,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ============================================
 
   // Trigger a scrape run
-  app.post("/api/scraper/run", async (req, res) => {
+  app.post("/api/scraper/run", verifyAuth, requireAdmin, async (req, res) => {
     try {
       // Check if Firecrawl is configured
       if (!isFirecrawlConfigured()) {
@@ -172,7 +182,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get scraper status
-  app.get("/api/scraper/status", async (_req, res) => {
+  app.get("/api/scraper/status", verifyAuth, requireAdmin, async (_req, res) => {
     try {
       const status = await getScraperStatus();
       const { getSchedulerState } = await import("./scraper/scheduler");
@@ -204,7 +214,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ========================================
 
   // Get all events with admin filters
-  app.get("/api/admin/events", async (req, res) => {
+  app.get("/api/admin/events", verifyAuth, requireAdmin, async (req, res) => {
     try {
       const { source, status, search, limit = '50', offset = '0' } = req.query;
 
@@ -246,17 +256,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update event
-  app.put("/api/admin/events/:id", async (req, res) => {
+  app.put("/api/admin/events/:id", verifyAuth, requireAdmin, async (req, res) => {
     try {
       const supabase = createClient(
         process.env.EXPO_PUBLIC_SUPABASE_URL!,
         process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!
       );
 
+      // Only allow updating specific fields to prevent ID or source platform tampering
+      const allowedFields = [
+        'title', 'description', 'category', 'venue_name',
+        'price_range', 'image_url', 'starts_at', 'status',
+        'is_external', 'source_url'
+      ];
+
+      const updateData: any = {};
+      allowedFields.forEach(field => {
+        if (req.body[field] !== undefined) {
+          updateData[field] = req.body[field];
+        }
+      });
+
       const { data, error } = await supabase
         .from('events')
         .update({
-          ...req.body,
+          ...updateData,
           last_edited_at: new Date().toISOString()
         })
         .eq('id', req.params.id)
@@ -273,7 +297,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete event
-  app.delete("/api/admin/events/:id", async (req, res) => {
+  app.delete("/api/admin/events/:id", verifyAuth, requireAdmin, async (req, res) => {
     try {
       const supabase = createClient(
         process.env.EXPO_PUBLIC_SUPABASE_URL!,
@@ -295,7 +319,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get admin statistics
-  app.get("/api/admin/stats", async (req, res) => {
+  app.get("/api/admin/stats", verifyAuth, requireAdmin, async (req, res) => {
     try {
       const supabase = createClient(
         process.env.EXPO_PUBLIC_SUPABASE_URL!,

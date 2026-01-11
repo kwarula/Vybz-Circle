@@ -17,10 +17,15 @@ function setupCors(app: express.Application) {
   app.use((req, res, next) => {
     const origins = new Set<string>();
 
-    // Development: Allow localhost on any port
+    // Development: Allow localhost on any port and common local IPs
     if (process.env.NODE_ENV === 'development') {
       const origin = req.header("origin");
-      if (origin && (origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('192.168.'))) {
+      if (origin && (
+        origin.includes('localhost') ||
+        origin.includes('127.0.0.1') ||
+        origin.includes('192.168.') ||
+        origin.startsWith('exp://')
+      )) {
         origins.add(origin);
       }
     }
@@ -37,17 +42,27 @@ function setupCors(app: express.Application) {
 
     const origin = req.header("origin");
 
+    // Always allow origin in development if it's there
+    if (process.env.NODE_ENV === 'development' && origin) {
+      origins.add(origin);
+    }
+
     if (origin && origins.has(origin)) {
       res.header("Access-Control-Allow-Origin", origin);
       res.header(
         "Access-Control-Allow-Methods",
         "GET, POST, PUT, DELETE, OPTIONS",
       );
-      res.header("Access-Control-Allow-Headers", "Content-Type");
+      res.header(
+        "Access-Control-Allow-Headers",
+        "Content-Type, Authorization, x-client-info, apikey",
+      );
       res.header("Access-Control-Allow-Credentials", "true");
     }
 
     if (req.method === "OPTIONS") {
+      // Explicitly handle preflight requests
+      res.header("Access-Control-Max-Age", "86400"); // 24 hours
       return res.sendStatus(200);
     }
 
@@ -170,26 +185,46 @@ function configureExpoAndLanding(app: express.Application) {
     "templates",
     "landing-page.html",
   );
-  const landingPageTemplate = fs.readFileSync(templatePath, "utf-8");
+
   const appName = getAppName();
 
-  log("Serving static Expo files with dynamic manifest routing");
+  log("Serving static Expo files and Web React build");
 
+  // 1. Static assets
+  app.use("/assets", express.static(path.resolve(process.cwd(), "assets")));
+  app.use(express.static(path.resolve(process.cwd(), "static-build")));
+
+  // 2. Web version static files (Vite build)
+  const webDistPath = path.resolve(process.cwd(), "web", "dist");
+  if (fs.existsSync(webDistPath)) {
+    app.use(express.static(webDistPath));
+    log("ℹ️ Web distribution folder found and serving");
+  }
+
+  // 3. Dynamic manifest and landing page logic
   app.use((req: Request, res: Response, next: NextFunction) => {
     if (req.path.startsWith("/api")) {
       return next();
     }
 
-    if (req.path !== "/" && req.path !== "/manifest") {
-      return next();
-    }
-
+    // Handle Expo manifests for mobile
     const platform = req.header("expo-platform");
-    if (platform && (platform === "ios" || platform === "android")) {
-      return serveExpoManifest(platform, res);
+    if (req.path === "/manifest" || (req.path === "/" && platform)) {
+      if (platform && (platform === "ios" || platform === "android")) {
+        return serveExpoManifest(platform, res);
+      }
     }
 
+    // Default to serving web version for non-API, non-manifest requests
+    if (fs.existsSync(path.join(webDistPath, "index.html"))) {
+      // Check if it's an Expo request wanting the landing page specifically
+      // (User-Agent check or similar could go here, but usually browsers just want index.html)
+      return res.sendFile(path.join(webDistPath, "index.html"));
+    }
+
+    // Fallback to legacy landing page template if web dist isn't found
     if (req.path === "/") {
+      const landingPageTemplate = fs.readFileSync(templatePath, "utf-8");
       return serveLandingPage({
         req,
         res,
@@ -200,12 +235,8 @@ function configureExpoAndLanding(app: express.Application) {
 
     next();
   });
-
-  app.use("/assets", express.static(path.resolve(process.cwd(), "assets")));
-  app.use(express.static(path.resolve(process.cwd(), "static-build")));
-
-  log("Expo routing: Checking expo-platform header on / and /manifest");
 }
+
 
 function setupErrorHandler(app: express.Application) {
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {

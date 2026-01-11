@@ -15,68 +15,59 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { LinearGradient } from 'expo-linear-gradient';
+import { s, ms, SCREEN_WIDTH } from "@/utils/responsive";
 import { ThemedText } from "@/components/ThemedText";
 import { EventCard } from "@/components/EventCard";
-import { CategoryChip } from "@/components/CategoryChip";
 import { Avatar } from "@/components/Avatar";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, Colors, Shadows, BorderRadius } from "@/constants/theme";
+import { Spacing, Colors, Shadows, BorderRadius, Typography } from "@/constants/theme";
 import { useEvents } from "@/hooks/useEvents";
-import { currentUser, categories } from "@/data/mockData";
+import { currentUser as mockUser } from "@/data/mockData";
+import { supabase } from "@/lib/supabase";
+import { apiRequest } from "@/lib/query-client";
+import { useEffect } from "react";
 
-const VISUAL_CATEGORIES = [
-  { id: "All", label: "Discovery", icon: "compass", colors: ["#8B5CF6", "#A78BFA"] },
-  { id: "Music", label: "Music", icon: "music", colors: ["#EC4899", "#F472B6"] },
-  { id: "Wellness", label: "Wellness", icon: "heart", colors: ["#10B981", "#34D399"] },
-  { id: "Social", label: "Social", icon: "users", colors: ["#F59E0B", "#FBBF24"] },
-  { id: "Networking", label: "Network", icon: "zap", colors: ["#3B82F6", "#60A5FA"] },
-  { id: "Comedy", label: "Comedy", icon: "smile", colors: ["#EF4444", "#F87171"] },
-  { id: "Sports", label: "Sports", icon: "award", colors: ["#6366F1", "#818CF8"] },
-  { id: "Food", label: "Food", icon: "coffee", colors: ["#F97316", "#FB923C"] },
+const MOODS = [
+  { id: "Wild", label: "Wild 💃", color: "#FF007A" },
+  { id: "Chill", label: "Chill ☕", color: "#00F0FF" },
+  { id: "Deep", label: "Deep 🧠", color: "#8B5CF6" },
+  { id: "Foodie", label: "Foodie 🍔", color: "#FF5F00" },
+  { id: "Social", label: "Social 👋", color: "#FF8A4D" },
 ];
 
-const VisualCategoryCard = ({ item, isSelected, onPress, index }: any) => {
-  const scale = useSharedValue(1);
-
+const MoodButton = ({ item, isSelected, onPress, index }: any) => {
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: withSpring(isSelected ? 1.05 : 1) }],
-    opacity: withTiming(1, { duration: 500 }),
+    transform: [{ scale: withSpring(isSelected ? 1.1 : 1, { damping: 12 }) }],
   }));
 
   return (
     <Animated.View
-      entering={FadeInRight.delay(index * 100).duration(600).springify()}
+      entering={FadeInRight.delay(index * 100).springify()}
       style={animatedStyle}
     >
       <Pressable
         onPress={() => {
-          Haptics.selectionAsync();
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           onPress();
         }}
-        style={({ pressed }) => [
-          styles.visualCard,
+        style={[
+          styles.moodButton,
           {
-            borderColor: isSelected ? item.colors[0] : 'transparent',
-            borderWidth: isSelected ? 2 : 0,
-          }
+            backgroundColor: isSelected ? item.color : 'rgba(255,255,255,0.05)',
+            borderColor: item.color,
+            borderWidth: isSelected ? 0 : 2,
+          },
+          isSelected && Shadows.sticker
         ]}
       >
-        <LinearGradient
-          colors={isSelected ? item.colors : ['#1A1A1A', '#111111']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.cardGradient}
+        <ThemedText
+          style={[
+            styles.moodLabel,
+            { color: isSelected ? "#0A1B1B" : item.color }
+          ]}
         >
-          <View style={[styles.cardIconContainer, { backgroundColor: isSelected ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.05)' }]}>
-            <Feather name={item.icon} size={24} color={isSelected ? "#FFF" : "#737373"} />
-          </View>
-          <ThemedText
-            type="small"
-            style={[styles.cardLabel, { color: isSelected ? "#FFF" : "#737373" }]}
-          >
-            {item.label}
-          </ThemedText>
-        </LinearGradient>
+          {item.label}
+        </ThemedText>
       </Pressable>
     </Animated.View>
   );
@@ -88,18 +79,52 @@ export default function HomeScreen() {
   const navigation = useNavigation<any>();
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [notificationCount] = useState(3);
+  const [user, setUser] = useState<any>(null);
 
   const { theme, isDark } = useTheme();
   const { data: events = [] } = useEvents();
 
-  // Create derived state
+  // Spotify Recommendations
+  const [recommendedEvents, setRecommendedEvents] = useState<any[]>([]);
+  const [loadingRecommendations, setLoadingRecommendations] = useState(false);
+
+  useEffect(() => {
+    const fetchUserAndRecommendations = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          const userData = {
+            id: session.user.id,
+            name: session.user.user_metadata?.display_name || session.user.email?.split('@')[0] || "User",
+            avatar: session.user.user_metadata?.avatar_url || `https://i.pravatar.cc/150?u=${session.user.id}`
+          };
+          setUser(userData);
+
+          // Now fetch recommendations
+          setLoadingRecommendations(true);
+          const res = await apiRequest('GET', `/api/spotify/recommendations?userId=${session.user.id}`);
+          const data = await res.json();
+          if (Array.isArray(data)) {
+            setRecommendedEvents(data);
+          }
+        }
+      } catch (e) {
+        console.log("Failed to fetch user or recommendations", e);
+      } finally {
+        setLoadingRecommendations(false);
+      }
+    };
+
+    fetchUserAndRecommendations();
+  }, []);
+
   const trendingEvents = [...events]
     .sort((a: any, b: any) => b.attendees - a.attendees)
     .slice(0, 5);
 
   const filteredEvents = events.filter((event: any) => {
     if (selectedCategory === "All") return true;
-    return event.category === selectedCategory;
+    return event.category === selectedCategory || (selectedCategory === "Foodie" && event.category === "Food");
   });
 
   const handleEventPress = useCallback((eventId: string) => {
@@ -119,47 +144,58 @@ export default function HomeScreen() {
     navigation.navigate("Notifications");
   };
 
-  const handleAISearch = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    Alert.alert("AI Assistant", "How can I help you find the perfect event today?");
-  };
-
   const ListHeader = () => (
     <View style={styles.headerContainer}>
       {/* GREETING HEADER */}
       <View style={styles.greetingHeader}>
         <View>
-          <ThemedText type="small" style={{ color: theme.textMuted, letterSpacing: 1, textTransform: 'uppercase' }}>
+          <ThemedText style={[styles.welcomeText, { color: theme.textSecondary }]}>
             Welcome back
           </ThemedText>
-          <ThemedText type="h1">{currentUser.name}</ThemedText>
+          <ThemedText style={[styles.loudTitle, { color: theme.text }]}>{user?.name || mockUser.name}</ThemedText>
         </View>
         <View style={styles.headerActions}>
-          <Pressable
-            onPress={handleAISearch}
-            style={[styles.iconButton, { backgroundColor: theme.backgroundSecondary }]}
-          >
-            <Feather name="search" size={20} color={theme.text} />
-          </Pressable>
           <Pressable
             onPress={showNotifications}
             style={[styles.iconButton, { backgroundColor: theme.backgroundSecondary }]}
           >
-            <Feather name="bell" size={20} color={theme.text} />
+            <Feather name="bell" size={24} color={theme.text} />
             {notificationCount > 0 && <View style={styles.dot} />}
           </Pressable>
           <Pressable onPress={navigateToProfile}>
-            <Avatar uri={currentUser.avatar} size={44} />
+            <Avatar uri={user?.avatar || mockUser.avatar} size={50} />
           </Pressable>
         </View>
+      </View>
+
+      {/* MOOD SELECTOR */}
+      <View style={styles.categorySection}>
+        <View style={styles.sectionHeader}>
+          <ThemedText style={styles.loudTitle}>What's the vibe?</ThemedText>
+        </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.moodsScroll}
+        >
+          {MOODS.map((item, index) => (
+            <MoodButton
+              key={item.id}
+              item={item}
+              index={index}
+              isSelected={selectedCategory === item.id}
+              onPress={() => setSelectedCategory(item.id === selectedCategory ? "All" : item.id)}
+            />
+          ))}
+        </ScrollView>
       </View>
 
       {/* HERO CAROUSEL SECTION */}
       <View style={styles.heroSection}>
         <View style={styles.sectionHeader}>
-          <ThemedText type="h2">Featured</ThemedText>
+          <ThemedText style={styles.loudTitle}>Featured</ThemedText>
           <Pressable>
-            <ThemedText type="small" style={{ color: Colors.light.primary }}>See all</ThemedText>
+            <ThemedText type="link" style={{ color: Colors.dark.primary }}>See all</ThemedText>
           </Pressable>
         </View>
 
@@ -168,7 +204,7 @@ export default function HomeScreen() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.trendingList}
           decelerationRate="fast"
-          snapToInterval={316} // card width (300) + gap (16)
+          snapToInterval={s(300) + Spacing.md} // Proportional to card width
         >
           {trendingEvents.map((event: any, index: number) => (
             <Animated.View key={event.id} entering={FadeInDown.delay(index * 80).duration(500)}>
@@ -182,31 +218,9 @@ export default function HomeScreen() {
         </ScrollView>
       </View>
 
-      {/* VISUAL CATEGORIES */}
-      <View style={styles.categorySection}>
-        <View style={styles.sectionHeader}>
-          <ThemedText type="h2">Explore</ThemedText>
-        </View>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categoriesScroll}
-        >
-          {VISUAL_CATEGORIES.map((item, index) => (
-            <VisualCategoryCard
-              key={item.id}
-              item={item}
-              index={index}
-              isSelected={selectedCategory === item.id}
-              onPress={() => setSelectedCategory(item.id)}
-            />
-          ))}
-        </ScrollView>
-      </View>
-
       {/* EXPLORE NEARBY SECTION HEADER */}
       <View style={styles.sectionHeader}>
-        <ThemedText type="h2">Live Events</ThemedText>
+        <ThemedText style={styles.loudTitle}>Live Events</ThemedText>
       </View>
     </View>
   );
@@ -250,28 +264,41 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: Spacing.section,
   },
+  welcomeText: {
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  loudTitle: {
+    fontSize: Typography.h1.fontSize,
+    fontWeight: '900',
+    letterSpacing: -1,
+  },
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 16,
   },
   iconButton: {
-    width: 44,
-    height: 44,
+    width: ms(50),
+    height: ms(50),
     borderRadius: BorderRadius.full,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   dot: {
     position: 'absolute',
-    top: 10,
-    right: 10,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: Colors.light.error,
+    top: ms(12),
+    right: ms(12),
+    width: ms(12),
+    height: ms(12),
+    borderRadius: ms(6),
+    backgroundColor: Colors.dark.primary,
     borderWidth: 2,
-    borderColor: '#000',
+    borderColor: '#0A1B1B',
   },
   heroSection: {
     marginBottom: Spacing.section,
@@ -288,43 +315,21 @@ const styles = StyleSheet.create({
   categorySection: {
     marginBottom: Spacing.section,
   },
-  categoriesScroll: {
+  moodsScroll: {
     gap: Spacing.md,
     paddingRight: Spacing.xl,
+    paddingVertical: ms(10),
   },
-  visualCard: {
-    width: 80,
-    height: 100,
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
-  cardGradient: {
-    flex: 1,
-    padding: 12,
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  cardIconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
+  moodButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: BorderRadius.xl,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cardLabel: {
-    fontWeight: '600',
-    fontSize: 11,
-    textAlign: 'center',
-  },
-  fabContainer: {
-    position: "absolute",
-    right: Spacing.xl,
-  },
-  fab: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    alignItems: "center",
-    justifyContent: "center",
+  moodLabel: {
+    fontWeight: '900',
+    fontSize: 16,
+    textTransform: 'uppercase',
   },
 });

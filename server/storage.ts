@@ -13,6 +13,14 @@ export interface IStorage {
 
   createTicket(ticket: InsertTicket): Promise<Ticket>;
   getUserTickets(userId: string): Promise<Ticket[]>;
+
+  updateUserSpotifyData(userId: string, data: {
+    accessToken: string;
+    refreshToken: string;
+    expiresAt: Date;
+    genres: string[];
+    artists: string[];
+  }): Promise<void>;
 }
 
 
@@ -141,6 +149,27 @@ export class SupabaseStorage implements IStorage {
 
     if (error) throw new Error(`Failed to get user tickets: ${error.message}`);
     return data || [];
+  }
+
+  async updateUserSpotifyData(userId: string, data: {
+    accessToken: string;
+    refreshToken: string;
+    expiresAt: Date;
+    genres: string[];
+    artists: string[];
+  }): Promise<void> {
+    const { error } = await supabase
+      .from("users")
+      .update({
+        spotify_access_token: data.accessToken,
+        spotify_refresh_token: data.refreshToken,
+        spotify_token_expires_at: data.expiresAt.toISOString(),
+        spotify_genres: data.genres,
+        spotify_artists: data.artists
+      })
+      .eq("id", userId);
+
+    if (error) throw new Error(`Failed to update user spotify data: ${error.message}`);
   }
 }
 

@@ -13,6 +13,12 @@ export const users = pgTable("users", {
   interests: text("interests").array(), // Array of strings for interests
   home_location: jsonb("home_location"), // Storing Point as JSON for simplicity initially
   created_at: timestamp("created_at").defaultNow(),
+  // Spotify Integration
+  spotify_access_token: text("spotify_access_token"),
+  spotify_refresh_token: text("spotify_refresh_token"),
+  spotify_token_expires_at: timestamp("spotify_token_expires_at", { withTimezone: true }),
+  spotify_genres: jsonb("spotify_genres"), // Array of top genres
+  spotify_artists: jsonb("spotify_artists"), // Array of top artists
 });
 
 export const events = pgTable("events", {

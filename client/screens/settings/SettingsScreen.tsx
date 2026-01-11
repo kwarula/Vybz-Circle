@@ -115,12 +115,16 @@ export default function SettingsScreen() {
                     onPress: async () => {
                         try {
                             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                            // Sign out from Supabase
                             const { error } = await supabase.auth.signOut();
+
+                            // Re-navigation to Auth happens automatically if listener is set up in RootStackNavigator
+                            // or we can force it here if needed.
                             if (error) {
                                 Alert.alert("Error", error.message);
                             }
                         } catch (e) {
-                            console.error(e);
+                            console.error("Logout error:", e);
                             Alert.alert("Error", "Failed to log out");
                         }
                     },
@@ -148,8 +152,27 @@ export default function SettingsScreen() {
                                     text: "I understand, delete",
                                     style: "destructive",
                                     onPress: async () => {
-                                        // TODO: Implement account deletion
-                                        Alert.alert("Account Deletion", "Please contact support to complete account deletion.");
+                                        try {
+                                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+
+                                            // Call backend to delete account
+                                            const { data: { session } } = await supabase.auth.getSession();
+                                            if (!session) throw new Error("No active session");
+
+                                            const { apiRequest } = await import("@/lib/query-client");
+                                            const res = await apiRequest('DELETE', `api/users/${session.user.id}`);
+
+                                            if (res.ok) {
+                                                await supabase.auth.signOut();
+                                                Alert.alert("Account Deleted", "Your account and data have been permanently removed.");
+                                            } else {
+                                                const err = await res.json();
+                                                throw new Error(err.message || "Failed to delete account");
+                                            }
+                                        } catch (e: any) {
+                                            console.error("Delete account error:", e);
+                                            Alert.alert("Error", e.message || "Failed to delete account");
+                                        }
                                     },
                                 },
                             ]
@@ -170,7 +193,7 @@ export default function SettingsScreen() {
                 style={styles.scrollView}
                 contentContainerStyle={{
                     paddingTop: insets.top + Spacing.lg,
-                    paddingBottom: insets.bottom + Spacing["3xl"],
+                    paddingBottom: insets.bottom + 140, // Increased padding to clear tab bar (90) + extra breathing room
                     paddingHorizontal: Spacing.lg,
                 }}
                 showsVerticalScrollIndicator={false}

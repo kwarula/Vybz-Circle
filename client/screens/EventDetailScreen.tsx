@@ -9,6 +9,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
 import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/query-client";
+import { supabase } from "@/lib/supabase";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Avatar } from "@/components/Avatar";
@@ -16,8 +18,6 @@ import { GlassView } from "@/components/GlassView";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors, Shadows, Gradients } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
-
-const API_URL = process.env.EXPO_PUBLIC_DOMAIN || 'http://localhost:5000';
 
 type EventDetailRouteProp = RouteProp<RootStackParamList, "EventDetail">;
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -35,6 +35,7 @@ export default function EventDetailScreen() {
   // Adapter to transform Backend Event to UI Event
   const adaptEvent = (beEvent: any): any => ({
     ...beEvent,
+    imageUrl: beEvent.image_url || beEvent.imageUrl || "https://images.unsplash.com/photo-1492684223066-81342ee5ff30",
     organizer: beEvent.organizer || {
       id: beEvent.organizer_id || "1",
       name: beEvent.organizer_name || "Event Organizer",
@@ -53,10 +54,9 @@ export default function EventDetailScreen() {
 
   // Fetch event from API
   const { data: rawEvent, isLoading } = useQuery({
-    queryKey: ['event', route.params.eventId],
-    queryFn: async () => {
-      const res = await fetch(`${API_URL}/api/events/${route.params.eventId}`);
-      if (!res.ok) throw new Error("Failed to fetch event");
+    queryKey: ['api', 'events', route.params.eventId],
+    queryFn: async ({ queryKey }) => {
+      const res = await apiRequest('GET', queryKey.join('/'));
       const data = await res.json();
       return adaptEvent(data);
     }
@@ -102,18 +102,16 @@ export default function EventDetailScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
 
     // Check if this is an external event from a scraped platform
-    // @ts-ignore - added via migration but might not be in mock types yet
     if (event.is_external || event.source_url) {
       try {
+        // Get current user if available
+        const { data: { session } } = await supabase.auth.getSession();
+
         // Track the click before redirecting
-        const response = await fetch(`${API_URL}/api/events/${event.id}/track-click`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            // userId: currentUser?.id, // Get this from auth context if available
-            source: 'detail_screen',
-            deviceInfo: { platform: Platform.OS }
-          })
+        const response = await apiRequest('POST', `api/events/${event.id}/track-click`, {
+          userId: session?.user?.id,
+          source: 'detail_screen',
+          deviceInfo: { platform: Platform.OS }
         });
 
         const data = await response.json();
@@ -199,7 +197,7 @@ export default function EventDetailScreen() {
             )}
           </View>
 
-          <ThemedText type="hero" style={{ marginTop: Spacing.sm }}>{event.title}</ThemedText>
+          <ThemedText type="hero" style={{ marginTop: Spacing.sm }} numberOfLines={0}>{event.title}</ThemedText>
 
           {/* KEY DETAILS */}
           <View style={styles.keyDetails}>

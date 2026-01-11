@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { Audio } from "expo-av";
+import { useAudioRecorder, useAudioPlayer, AudioModule } from "expo-audio";
 import Animated, {
     useSharedValue,
     useAnimatedStyle,
@@ -46,9 +46,38 @@ export default function VoiceScreen() {
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [statusText, setStatusText] = useState("Tap to connect");
 
+    // Audio Hooks
+    const recorder = useAudioRecorder({
+        sampleRate: 16000,
+        numberOfChannels: 1,
+        bitRate: 256000,
+        extension: '.wav',
+        android: {
+            extension: '.wav',
+            outputFormat: 'default',
+            audioEncoder: 'default',
+            sampleRate: 16000,
+            numberOfChannels: 1,
+            bitRate: 256000,
+        } as any,
+        ios: {
+            extension: '.wav',
+            outputFormat: 'lpcm',
+            audioQuality: 0x7f,
+            sampleRate: 16000,
+            linearPCMBitDepth: 16,
+            linearPCMIsBigEndian: false,
+            linearPCMIsFloat: false,
+        } as any,
+        web: {
+            mimeType: 'audio/webm',
+            bitsPerSecond: 128000,
+        },
+    } as any);
+    const player = useAudioPlayer();
+
     // Refs
     const ws = useRef<WebSocket | null>(null);
-    const recording = useRef<Audio.Recording | null>(null);
     const audioQueue = useRef<string[]>([]);
     const isPlayingRef = useRef(false);
     const setupComplete = useRef(false);
@@ -62,8 +91,8 @@ export default function VoiceScreen() {
     useEffect(() => {
         return () => {
             disconnect();
-            if (recording.current) {
-                recording.current.stopAndUnloadAsync().catch(() => { });
+            if (recorder.isRecording) {
+                recorder.stop();
             }
         };
     }, []);
@@ -162,30 +191,26 @@ export default function VoiceScreen() {
                     encoding: FileSystem.EncodingType.Base64,
                 });
 
-                await Audio.setAudioModeAsync({
-                    allowsRecordingIOS: false,
-                    playsInSilentModeIOS: true,
+                await AudioModule.setAudioModeAsync({
+                    allowsRecording: false,
+                    playsInSilentMode: true,
                 });
 
-                const { sound: playbackSound } = await Audio.Sound.createAsync(
-                    { uri },
-                    { shouldPlay: true }
-                );
+                player.replace(uri);
+                player.play();
 
-                playbackSound.setOnPlaybackStatusUpdate(async (status) => {
-                    if (status.isLoaded && status.didJustFinish) {
-                        await playbackSound.unloadAsync();
-                        if (FileSystem) {
-                            await FileSystem.deleteAsync(uri, { idempotent: true });
-                        }
-                        isPlayingRef.current = false;
-
-                        if (audioQueue.current.length === 0) {
-                            setIsSpeaking(false);
-                            setStatusText("Hold to speak");
-                        }
-                        processAudioQueue();
+                const listener = player.addListener('playbackFinished' as any, async () => {
+                    listener.remove();
+                    if (FileSystem) {
+                        await FileSystem.deleteAsync(uri, { idempotent: true });
                     }
+                    isPlayingRef.current = false;
+
+                    if (audioQueue.current.length === 0) {
+                        setIsSpeaking(false);
+                        setStatusText("Hold to speak");
+                    }
+                    processAudioQueue();
                 });
             } catch (error) {
                 console.error("Error playing audio chunk:", error);
@@ -353,13 +378,12 @@ export default function VoiceScreen() {
         setStatusText("Waiting for AI...");
     };
 
-    // Recording Logic
     const startRecording = async () => {
         if (!isConnected || !setupComplete.current) {
             console.log("Not connected or setup not complete");
             return;
         }
-        if (recording.current || isListening) {
+        if (recorder.isRecording || isListening) {
             console.log("Already recording");
             return;
         }
@@ -367,72 +391,34 @@ export default function VoiceScreen() {
         try {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
 
-            const permission = await Audio.requestPermissionsAsync();
-            if (permission.status !== "granted") {
-                Alert.alert("Permission denied", "Microphone access is required.");
-                return;
-            }
-
-            await Audio.setAudioModeAsync({
-                allowsRecordingIOS: true,
-                playsInSilentModeIOS: true,
+            await AudioModule.setAudioModeAsync({
+                allowsRecording: true,
+                playsInSilentMode: true,
             });
 
-            // Use LINEAR PCM format for best compatibility with Gemini
-            const recordingOptions: Audio.RecordingOptions = {
-                android: {
-                    extension: ".wav",
-                    outputFormat: Audio.AndroidOutputFormat.DEFAULT,
-                    audioEncoder: Audio.AndroidAudioEncoder.DEFAULT,
-                    sampleRate: 16000,
-                    numberOfChannels: 1,
-                    bitRate: 256000,
-                },
-                ios: {
-                    extension: ".wav",
-                    outputFormat: Audio.IOSOutputFormat.LINEARPCM,
-                    audioQuality: Audio.IOSAudioQuality.HIGH,
-                    sampleRate: 16000,
-                    numberOfChannels: 1,
-                    bitRate: 256000,
-                    linearPCMBitDepth: 16,
-                    linearPCMIsBigEndian: false,
-                    linearPCMIsFloat: false,
-                },
-                web: {
-                    mimeType: "audio/webm",
-                    bitsPerSecond: 128000,
-                },
-            };
-
-            const { recording: newRecording } = await Audio.Recording.createAsync(recordingOptions);
-            recording.current = newRecording;
+            recorder.record();
             setIsListening(true);
             setStatusText("Listening...");
             console.log("Recording started");
         } catch (err) {
             console.error("Failed to start recording:", err);
-            recording.current = null;
             setIsListening(false);
         }
     };
 
     const stopRecording = async () => {
-        if (!recording.current) {
+        if (!recorder.isRecording) {
             console.log("No recording to stop");
             return;
         }
-
-        const currentRecording = recording.current;
-        recording.current = null;
 
         try {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             setIsListening(false);
             setStatusText("Sending...");
 
-            await currentRecording.stopAndUnloadAsync();
-            const uri = currentRecording.getURI();
+            await recorder.stop();
+            const uri = recorder.uri;
             console.log("Recording stopped, file at:", uri);
 
             if (uri && ws.current && isConnected && setupComplete.current) {
@@ -482,7 +468,6 @@ export default function VoiceScreen() {
                 console.log("Sending audio, mime:", mimeType, "length:", base64Audio.length);
                 ws.current.send(JSON.stringify(audioMessage));
                 setStatusText("Waiting for AI...");
-
             } else {
                 console.log("Cannot send - ws:", !!ws.current, "connected:", isConnected, "setup:", setupComplete.current);
                 setStatusText("Connection lost");

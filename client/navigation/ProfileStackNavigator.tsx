@@ -49,8 +49,7 @@ export default function ProfileStackNavigator() {
         name="Profile"
         component={ProfileScreen}
         options={{
-          title: "Profile",
-          headerRight: () => <SettingsButton />,
+          headerShown: false,
         }}
       />
       <Stack.Screen

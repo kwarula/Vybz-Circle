@@ -9,9 +9,9 @@ import { EventCard } from "@/components/EventCard";
 import { useTheme } from "@/hooks/useTheme";
 import { Colors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 
-const API_URL = process.env.EXPO_PUBLIC_DOMAIN || 'http://localhost:5000';
+import { getApiUrl, apiRequest } from "@/lib/query-client";
 
-type Event = any; // Using any for now to match flexible backend data
+type Event = any;
 
 // Edit Modal Component
 const EditEventModal = ({ visible, event, onClose, onSave }: { visible: boolean; event: Event | null; onClose: () => void; onSave: (data: any) => void }) => {
@@ -88,22 +88,22 @@ export default function AdminDashboardScreen() {
     const [filterSource, setFilterSource] = useState<string | null>(null); // null = all, ticketsasa, etc.
     const [editingEvent, setEditingEvent] = useState<Event | null>(null);
 
-    // Fetch Stats
     const { data: stats } = useQuery({
-        queryKey: ['admin-stats'],
-        queryFn: async () => {
-            const res = await fetch(`${API_URL}/api/admin/stats`);
-            return res.json();
-        }
+        queryKey: ['api', 'admin', 'stats'],
+        // queryFn will use global getQueryFn which joins keys with /
     });
 
     // Fetch Events
     const { data: eventsData, isLoading, refetch } = useQuery({
-        queryKey: ['admin-events', filterSource],
+        queryKey: ['api', 'admin', 'events'],
+        // queryKey doesn't support query params in the global getQueryFn easily
+        // so we override it for filters if needed, but getQueryFn joins with /
         queryFn: async () => {
-            const url = new URL(`${API_URL}/api/admin/events`);
+            const domain = getApiUrl();
+            const url = new URL('api/admin/events', domain);
             if (filterSource) url.searchParams.append('source', filterSource);
-            const res = await fetch(url.toString());
+
+            const res = await apiRequest('GET', url.pathname + url.search);
             return res.json();
         }
     });
@@ -134,12 +134,7 @@ export default function AdminDashboardScreen() {
     // Mutations
     const updateMutation = useMutation({
         mutationFn: async (data: any) => {
-            const res = await fetch(`${API_URL}/api/admin/events/${editingEvent.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data),
-            });
-            if (!res.ok) throw new Error('Failed to update');
+            const res = await apiRequest('PUT', `api/admin/events/${editingEvent.id}`, data);
             return res.json();
         },
         onSuccess: () => {
@@ -150,8 +145,7 @@ export default function AdminDashboardScreen() {
 
     const deleteMutation = useMutation({
         mutationFn: async (id: string) => {
-            const res = await fetch(`${API_URL}/api/admin/events/${id}`, { method: 'DELETE' });
-            if (!res.ok) throw new Error('Failed to delete');
+            await apiRequest('DELETE', `api/admin/events/${id}`);
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['admin-events'] });

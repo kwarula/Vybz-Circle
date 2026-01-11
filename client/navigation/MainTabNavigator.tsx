@@ -1,9 +1,17 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
-import { Platform, StyleSheet, View } from "react-native";
+import { Platform, StyleSheet, View, Pressable } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSpring,
+  withSequence,
+  withTiming
+} from "react-native-reanimated";
 
 import HomeStackNavigator from "@/navigation/HomeStackNavigator";
 import DiscoverStackNavigator from "@/navigation/DiscoverStackNavigator";
@@ -11,7 +19,7 @@ import ProfileStackNavigator from "@/navigation/ProfileStackNavigator";
 import VoiceScreen from "@/screens/VoiceScreen";
 import CircleScreen from "@/screens/circle/CircleScreen";
 import { useTheme } from "@/hooks/useTheme";
-import { Colors, Shadows } from "@/constants/theme";
+import { Colors, Shadows, Gradients } from "@/constants/theme";
 
 export type MainTabParamList = {
   HomeTab: undefined;
@@ -23,6 +31,57 @@ export type MainTabParamList = {
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
+const PulsingVoiceButton = ({ focused }: { focused: boolean }) => {
+  const pulseScale = useSharedValue(1);
+
+  useEffect(() => {
+    if (focused) {
+      pulseScale.value = withRepeat(
+        withSequence(
+          withSpring(1.1, { damping: 12, stiffness: 100 }),
+          withSpring(1, { damping: 12, stiffness: 100 })
+        ),
+        -1,
+        true
+      );
+    } else {
+      pulseScale.value = withSpring(1);
+    }
+  }, [focused]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pulseScale.value }],
+  }));
+
+  const glowStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: withTiming(focused ? 1.2 : 1, { duration: 400 }) }],
+    opacity: withTiming(focused ? 0.3 : 0, { duration: 400 }),
+  }));
+
+  return (
+    <View style={styles.voiceButtonContainer}>
+      <Animated.View style={[styles.voiceButtonWrapper, animatedStyle]}>
+        <LinearGradient
+          colors={Gradients.party}
+          style={styles.voiceButton}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
+          <Feather name="mic" size={28} color="#FFF" />
+        </LinearGradient>
+      </Animated.View>
+      {/* Refined Glow */}
+      <Animated.View
+        style={[
+          styles.voiceGlow,
+          { backgroundColor: Colors.dark.primary },
+          glowStyle
+        ]}
+      />
+    </View>
+  );
+};
+
 export default function MainTabNavigator() {
   const { theme, isDark } = useTheme();
 
@@ -30,7 +89,7 @@ export default function MainTabNavigator() {
     <Tab.Navigator
       initialRouteName="HomeTab"
       screenOptions={{
-        tabBarActiveTintColor: "#8B5CF6",
+        tabBarActiveTintColor: sunsetOrange,
         tabBarInactiveTintColor: theme.tabIconDefault,
         tabBarStyle: {
           position: "absolute",
@@ -41,30 +100,32 @@ export default function MainTabNavigator() {
           }),
           borderTopWidth: 0,
           elevation: 0,
-          height: 85,
-          paddingBottom: 25,
+          height: 90,
+          paddingBottom: 30,
         },
         tabBarBackground: () =>
           Platform.OS === "ios" ? (
             <BlurView
-              intensity={90}
-              tint="dark"
+              intensity={80}
+              tint={isDark ? "dark" : "light"}
               style={StyleSheet.absoluteFill}
             />
           ) : (
             <View
               style={[
                 StyleSheet.absoluteFill,
-                { backgroundColor: "#000000" },
+                { backgroundColor: isDark ? "#0A1A1A" : "#F4F1EA" },
               ]}
             />
           ),
         headerShown: false,
         tabBarShowLabel: true,
         tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '700',
+          fontSize: 12,
+          fontWeight: '800',
           marginBottom: 4,
+          textTransform: 'uppercase',
+          letterSpacing: 0.5,
         }
       }}
     >
@@ -72,9 +133,9 @@ export default function MainTabNavigator() {
         name="HomeTab"
         component={HomeStackNavigator}
         options={{
-          title: "Home",
+          title: "Vybz",
           tabBarIcon: ({ color }) => (
-            <Feather name="home" size={24} color={color} />
+            <Feather name="zap" size={24} color={color} />
           ),
         }}
       />
@@ -82,7 +143,7 @@ export default function MainTabNavigator() {
         name="ExploreTab"
         component={DiscoverStackNavigator}
         options={{
-          title: "Explore",
+          title: "Move",
           tabBarIcon: ({ color }) => (
             <Feather name="compass" size={24} color={color} />
           ),
@@ -93,20 +154,7 @@ export default function MainTabNavigator() {
         component={VoiceScreen}
         options={{
           title: "",
-          tabBarIcon: ({ focused }) => (
-            <View style={styles.voiceButtonContainer}>
-              <LinearGradient
-                colors={focused ? ['#8B5CF6', '#7C3AED'] : ['#6D28D9', '#5B21B6']}
-                style={styles.voiceButton}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              >
-                <Feather name="mic" size={28} color="#FFF" />
-              </LinearGradient>
-              {/* Glow effect */}
-              {focused && <View style={styles.voiceGlow} />}
-            </View>
-          ),
+          tabBarIcon: ({ focused }) => <PulsingVoiceButton focused={focused} />,
           tabBarLabel: () => null,
         }}
       />
@@ -124,7 +172,7 @@ export default function MainTabNavigator() {
         name="ProfileTab"
         component={ProfileStackNavigator}
         options={{
-          title: "Profile",
+          title: "You",
           tabBarIcon: ({ color }) => (
             <Feather name="user" size={24} color={color} />
           ),
@@ -134,12 +182,16 @@ export default function MainTabNavigator() {
   );
 }
 
+const sunsetOrange = "#FF5F00";
+
 const styles = StyleSheet.create({
   voiceButtonContainer: {
-    position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 20, // Elevate above tab bar
+    marginBottom: 25,
+  },
+  voiceButtonWrapper: {
+    zIndex: 10,
   },
   voiceButton: {
     width: 64,
@@ -147,15 +199,17 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     alignItems: 'center',
     justifyContent: 'center',
-    ...Shadows.fab,
+    shadowColor: Colors.dark.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
   voiceGlow: {
     position: 'absolute',
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: Colors.light.primary,
-    opacity: 0.2,
     zIndex: -1,
   },
 });

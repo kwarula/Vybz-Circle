@@ -105,15 +105,22 @@ export default function SignUpScreen() {
             password,
             options: {
                 data: {
-                    display_name: fullName,
+                    full_name: fullName,
                     phone: phone,
                 },
             },
         });
 
         if (error) {
+            console.log('Signup error details:', error);
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-            if (error.message.includes("User already registered") || error.message.includes("already exists")) {
+
+            const isExistingUser =
+                error.message.includes("User already registered") ||
+                error.message.includes("already exists") ||
+                (error as any).status === 422;
+
+            if (isExistingUser) {
                 Alert.alert(
                     'Account Exists',
                     'This email is already registered. Please log in.',
